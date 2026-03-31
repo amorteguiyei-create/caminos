@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Caminos de Convivencia</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,700,1,0" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Nunito', sans-serif; background: #f4f6f8; margin: 0; padding: 0; color: #2e3d49; }
+    #admin-login { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    #admin-dashboard { display: none; padding: 40px; max-width: 900px; margin: 0 auto; }
+    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 25px; }
+    h1, h2, h3 { color: #1b5e20; margin-top: 0; }
+    input, select, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; font-family: 'Nunito', sans-serif;}
+    button { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; font-weight: 800; font-size: 16px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+    button:hover { background: #388e3c; }
+    .btn-secondary { background: #78909c; }
+    .btn-secondary:hover { background: #546e7a; }
+    .row { display: flex; gap: 15px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 300px; }
+    .history-item { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .history-item.falta { border-left-color: #e53935; }
+    .history-item.acto { border-left-color: #fbc02d; }
+    .stars { color: #fbc02d; font-weight: 900; font-size: 20px; display: flex; align-items: center; gap: 5px; margin-bottom: 10px; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 900; color: white; margin-bottom: 8px; text-transform: uppercase; }
+    .badge.falta { background: #e53935; }
+    .badge.acto { background: #fbc02d; color: #424242; }
+    .date { font-size: 12px; color: #78909c; font-weight: 800; display: block; margin-bottom: 5px;}
+    .chat-new-badge { position: absolute; top: -10px; right: -10px; background: white; color: #e53935; font-size: 9px; padding: 2px 5px; border-radius: 10px; font-weight: 900; border: 1px solid #e53935; box-shadow: 0 2px 5px rgba(0,0,0,0.1); animation: pulse 1s infinite; pointer-events: none; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+  <div id="admin-login">
+    <div class="card" style="text-align: center; max-width: 400px; width: 100%;">
+      <h2>Acceso Administrativo</h2>
+      <input type="password" id="admin-pass" placeholder="Contraseña">
+      <p id="admin-error" style="color: #e53935; display: none; margin-bottom: 15px; font-weight: 800;">Contraseña incorrecta</p>
+      <button onclick="loginAdmin()">Ingresar</button>
+    </div>
+  </div>
+
+  <div id="admin-dashboard">
+    <div class="card" id="search-card">
+      <h2 style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        Buscar Ciudadano 
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="btn-alarmas-global" onclick="filtrarSoloAlarmas()" class="btn-secondary" style="display: none; width: auto; padding: 8px 16px; font-size: 14px; background:#e53935; color: white; border: 2px solid white; box-shadow: 0 0 10px rgba(229, 57, 53, 0.4);">
+             🚨 <span id="alarm-count-badge" style="background: white; color: #e53935; border-radius: 12px; padding: 1px 7px; font-size: 12px; margin-left: 2px; font-weight: 900;">0</span> Alarmas
+          </button>
+          <button onclick="showCrearModal()" class="btn-secondary" style="width: auto; padding: 8px 16px; font-size: 14px; background:#0288d1; color: white;">+ Nuevo</button>
+          <button onclick="showDatabaseView()" class="btn-secondary" style="width: auto; padding: 8px 16px; font-size: 14px; background:#7b1fa2; color: white;">🗃️ Base de Datos</button>
+          <button onclick="logoutAdmin()" class="btn-secondary" style="width: auto; padding: 8px 16px; font-size: 14px;">Salir</button>
+        </div>
+      </h2>
+      <div class="row">
+        <div style="flex: 1;"><input type="text" id="search-name" placeholder="Escribe el nombre o apellido del ciudadano..." oninput="filterStudents()"></div>
+      </div>
+      <div id="search-results" style="max-height: 200px; overflow-y: auto; background: #fff; border-radius: 8px; border: 1px solid #eee; display: none;"></div>
+      <p id="search-status" style="font-weight: 800; color: #78909c; margin-top: 10px;"></p>
+    </div>
+
+    <div id="student-panel" style="display: none;">
+      <div class="card">
+        <h2 id="st-name" style="font-size: 24px; margin-bottom: 10px;">Nombre del Estudiante</h2>
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <strong style="font-size: 16px;">Fase Actual:</strong>
+          <select id="st-fase" style="width: auto; margin-bottom: 0; padding: 8px; display: inline-block;">
+            <option value="sin ruta" style="font-weight: bold;">Sin Ruta / Reinicio del Proceso</option>
+            <option value="colibri-c1">Ruta Colibrí - Nodo C1</option>
+            <option value="colibri-c2">Ruta Colibrí - Nodo C2</option>
+            <option value="colibri-c3">Ruta Colibrí - Nodo C3</option>
+            <option value="colibri-c4">Ruta Colibrí - Nodo C4</option>
+            <option value="abeja-a1">Ruta Abeja - Nodo A1</option>
+            <option value="abeja-a2">Ruta Abeja - Nodo A2</option>
+            <option value="abeja-a3">Ruta Abeja - Nodo A3</option>
+            <option value="abeja-a4">Ruta Abeja - Nodo A4</option>
+            <option value="abeja-a5">Ruta Abeja - Nodo A5</option>
+            <option value="halcon-h1">Ruta Halcón - Nodo H1</option>
+            <option value="halcon-h2">Ruta Halcón - Nodo H2</option>
+            <option value="halcon-h3">Ruta Halcón - Nodo H3</option>
+            <option value="halcon-h4">Ruta Halcón - Nodo H4</option>
+            <option value="halcon-h5">Ruta Halcón - Nodo H5</option>
+            <option value="mariposa-m1">Ruta Mariposa - Nodo M1</option>
+            <option value="mariposa-m2">Ruta Mariposa - Nodo M2</option>
+            <option value="mariposa-m3">Ruta Mariposa - Nodo M3</option>
+            <option value="mariposa-m4">Ruta Mariposa - Nodo M4</option>
+            <option value="mariposa-m5">Ruta Mariposa - Nodo M5</option>
+            <option value="albatros-al1">Ruta Albatros - Nodo AL1</option>
+            <option value="albatros-al2">Ruta Albatros - Nodo AL2</option>
+            <option value="albatros-al3">Ruta Albatros - Nodo AL3</option>
+            <option value="albatros-al4">Ruta Albatros - Nodo AL4</option>
+            <option value="albatros-al5">Ruta Albatros - Nodo AL5</option>
+            <option value="albatros-al6">Ruta Albatros - Nodo AL6</option>
+            <option value="albatros-al7">Ruta Albatros - Nodo AL7</option>
+            <option value="albatros-al8">Ruta Albatros - Nodo AL8</option>
+          </select>
+          <button onclick="updateFase()" style="width: auto; padding: 8px 16px; margin-bottom: 0;">Actualizar Fase</button>
+        </div>
+        <p id="fase-update-status" style="color: #2e7d32; font-weight: 800; font-size: 14px; display: none; margin-bottom: 10px;">Fase actualizada.</p>
+
+        <div class="stars"><span class="material-symbols-rounded" style="font-size: 28px;">star</span> Estrellas Acumuladas: <span id="st-estrellas" style="margin-left: 5px; font-size: 28px;">0</span></div>
+      </div>
+
+      <div class="row">
+        <div class="card" style="align-self: flex-start;">
+          <h3>Agregar Nuevo Registro</h3>
+          <label style="font-weight: 800; font-size: 14px; color: #555; display: block; margin-bottom: 5px;">Tipo de Registro:</label>
+          <select id="reg-type" onchange="updateDescOptions()">
+            <option value="Falta">Falta / Infracción</option>
+            <option value="Acto">Acto de Ciudadanía (Otorga 1 Estrella)</option>
+          </select>
+          
+          <label style="font-weight: 800; font-size: 14px; color: #555; display: block; margin-bottom: 5px;">Fecha:</label>
+          <input type="date" id="reg-date">
+          
+          <label style="font-weight: 800; font-size: 14px; color: #555; display: block; margin-bottom: 5px;">Descripción / Observación:</label>
+          <div style="position: relative;">
+            <input type="text" id="reg-desc-search" placeholder="Escribe para buscar falta o acto..." oninput="filterDescOptions()" onfocus="filterDescOptions()" autocomplete="off" style="margin-bottom: 0;">
+            <div id="desc-search-results" style="max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #ccc; border-top: none; position: absolute; width: 100%; z-index: 100; display: none; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+          </div>
+          <textarea id="reg-desc" rows="3" placeholder="Contexto adicional u observación (Opcional)..." style="margin-top: 10px;"></textarea>
+          
+          <button onclick="addRecord()">Guardar Registro</button>
+          <p id="save-status" style="color: #2e7d32; font-weight: 800; margin-top: 10px; display: none;">Registro guardado exitosamente.</p>
+        </div>
+
+        <div class="card" style="max-height: 600px; display: flex; flex-direction: column;">
+          <h3>Historial Reciente</h3>
+          <div id="history-container" style="overflow-y: auto; padding-right: 10px; flex-grow: 1;">
+            <p style="color: #78909c; font-weight: 700;">Buscando registros...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISTA BASE DE DATOS -->
+  <div id="database-view" style="display: none; padding: 40px; max-width: 1000px; margin: 0 auto;">
+    <div class="card">
+      <h2 style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        Base de Datos Completa
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button onclick="window.open('importador.html', '_blank')" class="btn-secondary" style="width: auto; padding: 8px 16px; font-size: 14px; background:#0288d1; color: white;">📥 Subir Excel</button>
+          <button onclick="borrarBaseDeDatosCompleta()" class="btn-secondary" style="width: auto; padding: 8px 16px; font-size: 14px; background:#e53935; color: white;">⚠️ Borrar Todo</button>
+          <button onclick="hideDatabaseView()" class="btn-secondary" style="width: auto; padding: 8px 16px; font-size: 14px;">Volver</button>
+        </div>
+      </h2>
+      <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <input type="text" id="db-search" placeholder="Buscar nombre o código..." oninput="renderDatabaseView()" style="margin-bottom: 0; flex: 1; min-width: 150px;">
+        <select id="db-curso-filter" onchange="renderDatabaseView()" style="margin-bottom: 0; width: auto; padding: 8px; max-width: 200px;">
+          <option value="">Todos los Cursos</option>
+          <optgroup label="Preescolar">
+            <option value="ciclo_preescolar" style="font-weight: bold;">▶ Todo Preescolar</option>
+            <option value="infants">Infants</option>
+            <option value="toddlers a">Toddlers A</option>
+            <option value="toddlers b">Toddlers B</option>
+            <option value="prekinder a">Prekinder A</option>
+            <option value="prekinder b">Prekinder B</option>
+            <option value="kinder a">Kinder A</option>
+            <option value="kinder b">Kinder B</option>
+            <option value="transition a">Transition A</option>
+            <option value="transition b">Transition B</option>
+          </optgroup>
+          <optgroup label="Elementary (1ro a 4to)">
+            <option value="ciclo_elementary" style="font-weight: bold;">▶ Toda Elementary</option>
+            <option value="primero a">Primero A</option>
+            <option value="primero b">Primero B</option>
+            <option value="segundo a">Segundo A</option>
+            <option value="segundo b">Segundo B</option>
+            <option value="tercero a">Tercero A</option>
+            <option value="tercero b">Tercero B</option>
+            <option value="cuarto a">Cuarto A</option>
+            <option value="cuarto b">Cuarto B</option>
+            <option value="cuarto c">Cuarto C</option>
+          </optgroup>
+          <optgroup label="Junior High (5to a 8vo)">
+            <option value="ciclo_junior" style="font-weight: bold;">▶ Todo Junior High</option>
+            <option value="quinto a">Quinto A</option>
+            <option value="quinto b">Quinto B</option>
+            <option value="quinto c">Quinto C</option>
+            <option value="sexto a">Sexto A</option>
+            <option value="sexto b">Sexto B</option>
+            <option value="sexto c">Sexto C</option>
+            <option value="séptimo a">Séptimo A</option>
+            <option value="séptimo b">Séptimo B</option>
+            <option value="séptimo c">Séptimo C</option>
+            <option value="octavo a">Octavo A</option>
+            <option value="octavo b">Octavo B</option>
+            <option value="octavo c">Octavo C</option>
+          </optgroup>
+          <optgroup label="High School (9no a 11mo)">
+            <option value="ciclo_high" style="font-weight: bold;">▶ Todo High School</option>
+            <option value="noveno a">Noveno A</option>
+            <option value="noveno b">Noveno B</option>
+            <option value="noveno c">Noveno C</option>
+            <option value="décimo">Décimo (Todos)</option>
+            <option value="décimo art">10° Art & Culture</option>
+            <option value="décimo management">10° Management</option>
+            <option value="décimo science">10° Science</option>
+            <option value="undécimo">Undécimo (Todos)</option>
+            <option value="undécimo engineering">11° Engineering</option>
+            <option value="undécimo health">11° Health Science</option>
+            <option value="undécimo humanities">11° Humanities</option>
+          </optgroup>
+          <option value="sin asignar">Sin Asignar</option>
+        </select>
+        <select id="db-fase-filter" onchange="renderDatabaseView()" style="margin-bottom: 0; width: auto; padding: 8px;">
+          <option value="todas">Todas las Rutas</option>
+          <option value="sin ruta">Sin Ruta / Inicial</option>
+          <option value="colibri">Colibrí</option>
+          <option value="abeja">Abeja</option>
+          <option value="halcon">Halcón</option>
+          <option value="mariposa">Mariposa</option>
+          <option value="albatros">Albatros</option>
+        </select>
+        <select id="db-sort" onchange="renderDatabaseView()" style="margin-bottom: 0; width: auto; padding: 8px;">
+          <option value="nombre-asc">A-Z (Nombres)</option>
+          <option value="estrellas-desc">Mayor a Menor (Estrellas)</option>
+          <option value="estrellas-asc">Menor a Mayor (Estrellas)</option>
+          <option value="codigo-asc">Menor a Mayor (Códigos numéricos)</option>
+        </select>
+      </div>
+      <div id="alarm-filter-status" style="display:none; background: #fff9c4; color: #f57f17; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border: 1px solid #fff176; font-size: 14px; align-items: center; justify-content: space-between;">
+        <span>🔔 Estás viendo solo los casos con Alerta Albatros activa.</span>
+        <button onclick="filtrarSoloAlarmas()" style="background:#f57f17; border:none; color:white; cursor:pointer; font-weight:900; padding: 4px 10px; border-radius: 4px; font-size: 11px;">VER TODOS LOS CIUDADANOS</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; background: white; border: 1px solid #ddd;">
+          <thead>
+            <tr style="background: #f4f6f8; border-bottom: 2px solid #ccc;">
+              <th style="padding: 12px; border-bottom: 2px solid #ddd;">Código</th>
+              <th style="padding: 12px; border-bottom: 2px solid #ddd;">Curso</th>
+              <th style="padding: 12px; border-bottom: 2px solid #ddd;">Nombre Completo</th>
+              <th style="padding: 12px; border-bottom: 2px solid #ddd; text-align: center;">Fase Actual</th>
+              <th style="padding: 12px; border-bottom: 2px solid #ddd; text-align: center; cursor: pointer;" onclick="toggleSortStars()" title="Clic para ordenar">Estrellas <span style="font-size:12px">↕</span></th>
+              <th style="padding: 12px; border-bottom: 2px solid #ddd; text-align: center;">Bitácora</th>
+              <th style="padding: 12px; border-bottom: 2px solid #ddd; text-align: right;">Opciones</th>
+            </tr>
+          </thead>
+          <tbody id="db-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+      <p style="color: #e53935; font-size: 13px; margin-top: 10px; font-weight: bold;">* El asterisco indica: Estudiante creado manualmente desde este administrador o código generado algorítmicamente por falta de ID en el Excel.</p>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO CIUDADANO -->
+  <div id="modal-nuevo" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 1000; align-items:center; justify-content:center;">
+    <div class="card" style="width: 90%; max-width: 400px; padding: 30px;">
+      <h2>Crear Ciudadano</h2>
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Código / ID:</label>
+      <input type="text" id="new-cod" placeholder="Ej: 123456">
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Apellidos:</label>
+      <input type="text" id="new-ape" placeholder="Ej: Perez Gomez">
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Nombres:</label>
+      <input type="text" id="new-nom" placeholder="Ej: Juan Diego">
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Curso / Grado:</label>
+      <select id="new-curso" style="margin-bottom: 15px;">
+        <option value="SIN ASIGNAR">-- Seleccionar Curso --</option>
+        <optgroup label="Preescolar">
+          <option value="INFANTS">Infants</option>
+          <option value="TODDLERS A">Toddlers A</option>
+          <option value="TODDLERS B">Toddlers B</option>
+          <option value="PREKINDER A">Prekinder A</option>
+          <option value="PREKINDER B">Prekinder B</option>
+          <option value="KINDER A">Kinder A</option>
+          <option value="KINDER B">Kinder B</option>
+          <option value="TRANSITION A">Transition A</option>
+          <option value="TRANSITION B">Transition B</option>
+        </optgroup>
+        <optgroup label="Elementary">
+          <option value="PRIMERO A">Primero A</option>
+          <option value="PRIMERO B">Primero B</option>
+          <option value="SEGUNDO A">Segundo A</option>
+          <option value="SEGUNDO B">Segundo B</option>
+          <option value="TERCERO A">Tercero A</option>
+          <option value="TERCERO B">Tercero B</option>
+          <option value="CUARTO A">Cuarto A</option>
+          <option value="CUARTO B">Cuarto B</option>
+          <option value="CUARTO C">Cuarto C</option>
+        </optgroup>
+        <optgroup label="Junior High">
+          <option value="QUINTO A">Quinto A</option>
+          <option value="QUINTO B">Quinto B</option>
+          <option value="QUINTO C">Quinto C</option>
+          <option value="SEXTO A">Sexto A</option>
+          <option value="SEXTO B">Sexto B</option>
+          <option value="SEXTO C">Sexto C</option>
+          <option value="SÉPTIMO A">Séptimo A</option>
+          <option value="SÉPTIMO B">Séptimo B</option>
+          <option value="SÉPTIMO C">Séptimo C</option>
+          <option value="OCTAVO A">Octavo A</option>
+          <option value="OCTAVO B">Octavo B</option>
+          <option value="OCTAVO C">Octavo C</option>
+        </optgroup>
+        <optgroup label="High School">
+          <option value="NOVENO A">Noveno A</option>
+          <option value="NOVENO B">Noveno B</option>
+          <option value="NOVENO C">Noveno C</option>
+          <option value="DÉCIMO ART">10° Art & Culture</option>
+          <option value="DÉCIMO MANAGEMENT">10° Management</option>
+          <option value="DÉCIMO SCIENCE">10° Science</option>
+          <option value="UNDÉCIMO ENGINEERING">11° Engineering</option>
+          <option value="UNDÉCIMO HEALTH">11° Health Science</option>
+          <option value="UNDÉCIMO HUMANITIES">11° Humanities</option>
+        </optgroup>
+      </select>
+      
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button onclick="hideCrearModal()" class="btn-secondary">Cancelar</button>
+        <button onclick="crearCiudadanoBaseDatos()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR CIUDADANO -->
+  <div id="modal-editar" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 1000; align-items:center; justify-content:center;">
+    <div class="card" style="width: 90%; max-width: 400px; padding: 30px;">
+      <h2 style="color: #e53935;">Editar Ciudadano</h2>
+      <input type="hidden" id="edit-old-cod">
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Modificar Código ID: (ATENCIÓN: Clona y reescribe base de datos)</label>
+      <input type="text" id="edit-cod">
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Nombre Completo:</label>
+      <input type="text" id="edit-nom">
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Curso / Grado:</label>
+      <select id="edit-curso" style="margin-bottom: 15px;">
+        <option value="SIN ASIGNAR">-- Seleccionar Curso --</option>
+        <optgroup label="Preescolar">
+          <option value="INFANTS">Infants</option>
+          <option value="TODDLERS A">Toddlers A</option>
+          <option value="TODDLERS B">Toddlers B</option>
+          <option value="PREKINDER A">Prekinder A</option>
+          <option value="PREKINDER B">Prekinder B</option>
+          <option value="KINDER A">Kinder A</option>
+          <option value="KINDER B">Kinder B</option>
+          <option value="TRANSITION A">Transition A</option>
+          <option value="TRANSITION B">Transition B</option>
+        </optgroup>
+        <optgroup label="Elementary">
+          <option value="PRIMERO A">Primero A</option>
+          <option value="PRIMERO B">Primero B</option>
+          <option value="SEGUNDO A">Segundo A</option>
+          <option value="SEGUNDO B">Segundo B</option>
+          <option value="TERCERO A">Tercero A</option>
+          <option value="TERCERO B">Tercero B</option>
+          <option value="CUARTO A">Cuarto A</option>
+          <option value="CUARTO B">Cuarto B</option>
+          <option value="CUARTO C">Cuarto C</option>
+        </optgroup>
+        <optgroup label="Junior High">
+          <option value="QUINTO A">Quinto A</option>
+          <option value="QUINTO B">Quinto B</option>
+          <option value="QUINTO C">Quinto C</option>
+          <option value="SEXTO A">Sexto A</option>
+          <option value="SEXTO B">Sexto B</option>
+          <option value="SEXTO C">Sexto C</option>
+          <option value="SÉPTIMO A">Séptimo A</option>
+          <option value="SÉPTIMO B">Séptimo B</option>
+          <option value="SÉPTIMO C">Séptimo C</option>
+          <option value="OCTAVO A">Octavo A</option>
+          <option value="OCTAVO B">Octavo B</option>
+          <option value="OCTAVO C">Octavo C</option>
+        </optgroup>
+        <optgroup label="High School">
+          <option value="NOVENO A">Noveno A</option>
+          <option value="NOVENO B">Noveno B</option>
+          <option value="NOVENO C">Noveno C</option>
+          <option value="DÉCIMO ART">10° Art & Culture</option>
+          <option value="DÉCIMO MANAGEMENT">10° Management</option>
+          <option value="DÉCIMO SCIENCE">10° Science</option>
+          <option value="UNDÉCIMO ENGINEERING">11° Engineering</option>
+          <option value="UNDÉCIMO HEALTH">11° Health Science</option>
+          <option value="UNDÉCIMO HUMANITIES">11° Humanities</option>
+        </optgroup>
+      </select>
+      
+      <label style="font-weight: 800; font-size: 14px; display: block; margin-bottom: 5px;">Contraseña actual:</label>
+      <div style="display: flex; gap: 5px;">
+        <input type="text" id="edit-pass" style="flex: 1;">
+        <button onclick="restablecerContrasena()" style="background: #f57f17; width: auto; font-size: 12px; padding: 0 10px; margin-bottom: 5px;">Restaurar (Código)</button>
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button onclick="hideEditarModal()" class="btn-secondary" style="flex:1;">Cancelar</button>
+        <button onclick="guardarEdicionCiudadano()" style="background:#0288d1; flex:1;">Guardar Cambios</button>
+      </div>
+      <button onclick="eliminarCiudadanoIndividual()" style="background:#e53935; margin-top: 15px; width: 100%;">🗑️ Eliminar Estudiante Definitivamente</button>
+      <p style="font-size: 14px; color: #555; text-align: center;">Todos los cambios se aplican de inmediato en la nube para el estudiante seleccionado.</p>
+    </div>
+  </div>
+
+  <!-- MODAL: VISOR DE CHAT (CAJA NEGRA) -->
+  <div id="admin-chat-modal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index: 1000; align-items:center; justify-content:center;">
+    <div class="card" id="chat-modal-card" style="width: 90%; max-width: 600px; padding:0; display:flex; flex-direction:column; max-height: 80vh; overflow: hidden;">
+      <div style="background: #2E7D32; color:white; padding: 15px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin:0; color: white !important;">
+          <span class="material-symbols-rounded" style="vertical-align: middle; color: white !important;">forum</span> 
+          Bitácora Jhoncito: 
+          <span id="chat-student-name" style="color:white !important; font-weight: 900; filter: brightness(1.5);"></span>
+        </h3>
+        <button onclick="document.getElementById('admin-chat-modal').style.display='none'" style="background:none; border:none; color:white; font-size: 24px; cursor: pointer; font-weight:bold;">&times;</button>
+      </div>
+      <div id="chat-alerta-banner" style="display:none; background: #ffebee; color: #c62828; padding: 10px; text-align:center; font-weight:bold; border-bottom: 1px solid #ffcdd2;">
+        🚨 ALERTA ALBATROS DETECTADA 🚨
+        <div style="margin-top: 5px;">
+           <button onclick="limpiarAlertaAlbatros()" style="background:#c62828; color:white; border:none; border-radius:5px; padding: 5px 15px; cursor:pointer; font-size:12px;">Resolver Alerta</button>
+        </div>
+      </div>
+      <div id="chat-summary-area" style="background:#fffde7; padding: 15px; border-bottom: 1px solid #fff59d; display: none;">
+         <div style="font-size: 11px; color:#f57f17; font-weight: 800; text-transform: uppercase; margin-bottom: 5px;">🩺 Resumen de Situación:</div>
+         <p id="chat-summary-text" style="margin:0; font-size: 14px; font-weight: bold; color: #5d4037;"></p>
+      </div>
+      <div id="chat-log-container" style="padding: 15px; overflow-y: auto; background:#f5f5f5; flex:1;">
+          <p style="text-align:center; color:#888;">Cargando transcripción...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="data_patch.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

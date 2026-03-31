@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Importador a Firebase - Caminos de Convivencia</title>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+  <!-- SheetJS para leer Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f6f8; margin: 0; padding: 40px; display: flex; flex-direction: column; align-items: center; }
+    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 600px; width: 100%; box-sizing: border-box; }
+    h1 { color: #1b5e20; margin-top: 0; }
+    input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+    button { background: #4caf50; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    button:hover { background: #388e3c; }
+    button:disabled { background: #9e9e9e; cursor: not-allowed; }
+    .settings { display: flex; gap: 15px; }
+    .settings > div { flex: 1; }
+    #preview { margin-top: 15px; font-size: 14px; background: #f9f9f9; padding: 15px; border-radius: 8px; max-height: 200px; overflow-y: auto; display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Cargar Base de Datos</h1>
+    <p>Selecciona tu archivo descargado de <strong>Excel (.xls) o CSV</strong> para subir automáticamente todo el colegio a la nube de Firebase, sin necesidad de instalártelo en el computador.</p>
+    
+    <label>1. Selecciona el archivo de Excel/CSV en tu computador:</label>
+    <input type="file" id="file_input" accept=".xls,.xlsx,.csv">
+
+    <div id="column-selectors" style="display: none;">
+      <p style="color: #d32f2f; font-weight: bold;">El sistema detectó los datos. Verifica en qué columna está cada información:</p>
+      <div class="settings">
+        <div>
+          <label>Columna del Código:</label>
+          <select id="col-codigo"></select>
+        </div>
+        <div>
+          <label>Columna del Nombre:</label>
+          <select id="col-nombre"></select>
+        </div>
+        <div>
+          <label>Columna del Curso:</label>
+          <select id="col-curso">
+            <option value="-1">-- No cargar info de curso --</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+    <div class="settings">
+      <div>
+        <label>2. Modifica la Contraseña por defecto:</label>
+        <input type="text" id="default-pass" value="Caminos2026">
+        <small style="display: block; margin-top: -10px; margin-bottom: 15px; color: #666;">(Si habilitas la casilla inferior, la contraseña será el mismo código de acceso del estudiante)</small>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; margin-bottom: 15px;">
+           <input type="checkbox" id="use-code-as-pass" style="width: auto; margin: 0;" checked> Usar el código de acceso como contraseña para cada niño.
+        </label>
+      </div>
+      <div>
+        <label>3. Fase inicial de arranque:</label>
+        <input type="text" id="default-fase" value="colibri-c1">
+        <small style="display: block; margin-top: -10px; margin-bottom: 15px; color: #666;">Todos iniciarán en Colibrí fase 1 a menos de que les edites manualmente la fase después en Firebase.</small>
+      </div>
+    </div>
+
+    <div style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffcc80;">
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; color: #d84315; font-weight: bold;">
+         <input type="checkbox" id="update-only-mode" style="width: auto; margin: 0;"> MODO ACTUALIZACIÓN: Marcar esta casilla si solo quieres actulizar los CURSOS y nombres. (Protegerá las fases, estrellas y contraseñas actuales de ser borradas).
+      </label>
+    </div>
+
+    <button id="btn-upload" disabled style="margin-top: 20px;">Esperando a que subas el archivo...</button>
+    <div id="preview"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDG6gIdKgL0a_C7fAIQ6SCm5qMCcO-0d3w",
+      authDomain: "caminos-de-convivencia.firebaseapp.com",
+      projectId: "caminos-de-convivencia",
+      storageBucket: "caminos-de-convivencia.firebasestorage.app",
+      messagingSenderId: "590366039762",
+      appId: "1:590366039762:web:a1f2c222cf205c4107d70b"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let arrData = [];
+    let headers = [];
+
+    function decodeHTML(text) {
+        if(typeof text !== 'string') return text;
+        var doc = new DOMParser().parseFromString(text, "text/html");
+        return doc.documentElement.textContent;
+    }
+
+    document.getElementById('use-code-as-pass').addEventListener('change', function(e) {
+       document.getElementById('default-pass').disabled = e.target.checked;
+       if(e.target.checked) document.getElementById('default-pass').value = "Su mismo código";
+       else document.getElementById('default-pass').value = "Caminos2026";
+    });
+    // Forzar deshabilitar por el tick inicial
+    document.getElementById('default-pass').disabled = true;
+    document.getElementById('default-pass').value = "Su mismo código";
+
+    document.getElementById('file_input').addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      if(!file) return;
+
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          var data = new Uint8Array(e.target.result);
+          var workbook = XLSX.read(data, {type: 'array'});
+          
+          arrData = [];
+          // Extraer todas las tablas (a veces el sistema escolar genera múltiples tablas HTML ocultas como hojas)
+          workbook.SheetNames.forEach(function(sheetName) {
+              var sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {header: 1});
+              arrData = arrData.concat(sheetData);
+          });
+
+          if(arrData.length === 0) {
+              alert("El archivo excel parece estar vacío o de formato inválido.");
+              return;
+          }
+
+          // Asumimos que la primera fila tiene los encabezados o usamos la segunda si la primera es un título de colegio
+          headers = arrData[0] || [];
+          if (headers.length < 2 && arrData.length > 1) {
+              headers = arrData[1] || []; // Para saltarnos un "Encabezado General" fusionado en una sola celda
+          }
+          for(let i=0; i<headers.length; i++) {
+            if(typeof headers[i] !== 'string') headers[i] = "Columna " + (i+1);
+          }
+
+          var colCode = document.getElementById('col-codigo');
+          var colName = document.getElementById('col-nombre');
+          var colCurso = document.getElementById('col-curso'); // new
+          colCode.innerHTML = ""; colName.innerHTML = "";
+          colCurso.innerHTML = '<option value="-1">-- Sin Curso --</option>'; // new
+          
+          headers.forEach((h, index) => {
+            colCode.innerHTML += `<option value="${index}">${h}</option>`;
+            colName.innerHTML += `<option value="${index}">${h}</option>`;
+            colCurso.innerHTML += `<option value="${index}">${h}</option>`; // new
+          });
+
+          // Intentar auto-seleccionar (una suposición inteligente)
+          var codeIdx = headers.findIndex(h => h.toLowerCase().includes("codigo") || h.toLowerCase().includes("doc") || h.toLowerCase().includes("id"));
+          var nameIdx = headers.findIndex(h => h.toLowerCase().includes("nombre") || h.toLowerCase().includes("estud"));
+          var cursoIdx = headers.findIndex(h => h.toLowerCase().includes("curso") || h.toLowerCase().includes("grado") || h.toLowerCase().includes("salón") || h.toLowerCase().includes("salon"));
+          
+          if(codeIdx !== -1) colCode.selectedIndex = codeIdx; else colCode.selectedIndex = 0;
+          if(nameIdx !== -1) colName.selectedIndex = nameIdx; else colName.selectedIndex = 1;
+          if(cursoIdx !== -1) colCurso.value = cursoIdx.toString(); // new
+
+          document.getElementById('column-selectors').style.display = 'block';
+          
+          // Mostrar 3 muestras
+          var preview = document.getElementById('preview');
+          preview.style.display = 'block';
+          preview.innerHTML = "<strong>Vista previa de tus primeros ciudadanos:</strong><br><br>";
+          for(let i=1; i < Math.min(4, arrData.length); i++) {
+              if(arrData[i]) {
+                preview.innerHTML += `Fila ${i}: ${JSON.stringify(arrData[i])}<br>`;
+              }
+          }
+          
+          var btn = document.getElementById('btn-upload');
+          btn.disabled = false;
+          // Valid students count estimation: Rows - 1 header, discount empties
+          var count = 0; 
+          for(var x=1; x<arrData.length; x++){ if(arrData[x] && arrData[x].length>0) count++; }
+          btn.textContent = `Importar ${count} Ciudadanos a la Nube`;
+        } catch(error) {
+          alert("Error leyendo el archivo excel: " + error.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('btn-upload').addEventListener('click', async function() {
+      var btn = document.getElementById('btn-upload');
+      btn.disabled = true;
+      btn.textContent = "Alimentando a Firebase... Cargando...";
+
+      var codeIdx = parseInt(document.getElementById('col-codigo').value);
+      var nameIdx = parseInt(document.getElementById('col-nombre').value);
+      var cursoIdx = parseInt(document.getElementById('col-curso').value); // new
+      var defaultPass = document.getElementById('default-pass').disabled ? "" : document.getElementById('default-pass').value.trim();
+      var defaultFase = document.getElementById('default-fase').value.trim();
+      var useCodeAsPass = document.getElementById('use-code-as-pass').checked;
+      var updateOnlyMode = document.getElementById('update-only-mode').checked;
+
+      var validStudents = [];
+      for(var i=1; i<arrData.length; i++) {
+         var row = arrData[i];
+         if(!row) continue;
+         var rawCode = String(row[codeIdx] || "").trim();
+         var rawName = String(row[nameIdx] || "").trim();
+         
+         // Limpieza de datos y filtros
+         rawName = decodeHTML(rawName);
+         if(rawName && 
+            rawName !== "undefined" && 
+            rawName.toLowerCase() !== "nombre" &&
+            rawName.toLowerCase() !== "estudiante" &&
+            rawName.toLowerCase() !== "estudiantes" &&
+            rawName.toLowerCase() !== "no hay datos") {
+            
+            // Si tiene el nombre válido, revisamos el código
+            if(!rawCode || rawCode === "undefined" || rawCode.toLowerCase() === "no hay datos") {
+                // Generar código aleatorio temporal
+                rawCode = "NUEVO-" + Math.floor(1000 + Math.random() * 9000);
+            }
+
+            if(rawCode.toLowerCase() !== "código") {
+                validStudents.push({
+                   code: rawCode,
+                   name: rawName,
+                   curso: cursoIdx !== -1 ? String(row[cursoIdx] || "Sin asignar").trim() : "Sin asignar"
+                });
+            }
+         }
+      }
+
+      if(validStudents.length === 0) {
+         alert("No se encontraron registros usando esas columnas.");
+         btn.disabled = false;
+         btn.textContent = "Reintentar";
+         return;
+      }
+
+      // Lotificar por restricciones de Google Firestore (Max 500 escrituras por solicitud)
+      const chunkSize = 400; 
+      for (let i = 0; i < validStudents.length; i += chunkSize) {
+        const chunk = validStudents.slice(i, i + chunkSize);
+        const batch = db.batch();
+        chunk.forEach(student => {
+           let docRef = db.collection("ciudadano").doc(student.code);
+           
+           if (updateOnlyMode) {
+               batch.set(docRef, {
+                  nombre: student.name,
+                  curso: student.curso || "Sin asignar"
+               }, { merge: true });
+           } else {
+               let finalPass = useCodeAsPass ? student.code : defaultPass;
+               batch.set(docRef, {
+                  nombre: student.name,
+                  contraseña: finalPass,
+                  fase: defaultFase,
+                  curso: student.curso || "Sin asignar"
+               });
+           }
+        });
+        
+        btn.textContent = `Enviando lote ${Math.ceil((i+1)/chunkSize)}... de toda tu lista`;
+        try {
+            await batch.commit();
+        } catch(err) {
+            alert("Error al subir a Firebase bloque " + i + ": " + err.message);
+            btn.disabled = false;
+            btn.textContent = "Error interrumpió el proceso. Intenta otra vez.";
+            return;
+        }
+      }
+
+      btn.textContent = `¡Magnífico! ${validStudents.length} estudiantes guardados con éxito en la Nube.`;
+      btn.style.background = "#2e7d32";
+      alert("¡Todos los estudiantes han sido subidos súper rápido a Firebase! Ya puedes ir a la Consola de Firestore a verlos, y puedes cerrar esta ventana.");
+    });
+  </script>
+</body>
+</html>
