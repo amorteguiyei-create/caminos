@@ -409,11 +409,17 @@ function selectFromCarousel() {
   gameState.clase = cls.id;
   gameState.charColors.shirt = cls.color;
   
-  // Ocultar UI colateral, mantener el escenario y el personaje
-  document.querySelector('.role-info-panel:not(#color-custom)').classList.add('hidden');
-  document.querySelector('.role-strip-container').classList.add('hidden');
+  // Ocultar UI colateral de manera segura 
+  const infoPanel = document.querySelector('.role-info-panel:not(#color-custom)');
+  if (infoPanel) infoPanel.classList.add('hidden');
+  
+  const strip = document.querySelector('.role-strip-container');
+  if (strip) strip.classList.add('hidden');
+  
   document.querySelectorAll('.nav-arrow').forEach(el => el.classList.add('hidden'));
-  document.querySelector('#role-selector > .role-select-btn').classList.add('hidden');
+  
+  const selectBtn = document.getElementById('carousel-select-btn');
+  if (selectBtn) selectBtn.classList.add('hidden');
   
   showColorCustomization();
 }
@@ -445,7 +451,7 @@ function pickColor(part, color) {
 function updateCustomPreview() {
   const cls = CLASSES.find(function(c) { return c.id === gameState.clase; }) || CLASSES[0];
   
-  if (cls.pngImage) {
+  if (cls.charImg) {
     // Es un avatar PNG de alta calidad. Aplicaremos un cambio de tono aproximativo usando CSS hue-rotate.
     const img = document.querySelector('.role-char-img');
     if (img) {
