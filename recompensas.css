@@ -75,10 +75,10 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 .role-character-scene { position:absolute; left:50%; bottom:130px; transform:translateX(-50%); z-index:5;
   width:350px; height:350px; pointer-events:none;
 }
-.role-char-img { position:absolute; left:50%; bottom:-230px; transform:translateX(-50%); width:1000px; max-width:none; height:auto; object-fit:contain; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)); animation:charBreath 4s ease-in-out infinite; }
+.role-char-img { position:absolute; top:35%; left:50%; transform:translate(-50%, -50%); width:950px; height:950px; max-width:none; object-fit:contain; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)); animation:charBreath 4s ease-in-out infinite; }
 .role-character-scene canvas { position:absolute; left:50%; bottom:0; transform:translateX(-50%) scale(2.8); transform-origin:bottom center; filter:drop-shadow(0 4px 16px rgba(0,0,0,.4)); }
 .role-platform { position:absolute; left:50%; bottom:-15px; transform:translateX(-50%); width:340px; height:34px; background:radial-gradient(ellipse, rgba(76,175,80,.4), transparent 70%); border-radius:50%; animation:platformPulse 3s ease-in-out infinite; }
-@keyframes charBreath { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-8px)} }
+@keyframes charBreath { 0%,100%{transform:translate(-50%, -50%)} 50%{transform:translate(-50%, calc(-50% - 8px))} }
 @keyframes platformPulse { 0%,100%{opacity:.5;transform:translateX(-50%) scaleX(1)} 50%{opacity:1;transform:translateX(-50%) scaleX(1.1)} }
 
 /* Navigation Arrows */
@@ -228,7 +228,7 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
   .role-name { font-size:18px; }
   .role-emblem { width:40px; height:40px; }
   .role-character-scene { position:absolute; right:auto; left:50%; top:30%; transform:translate(-50%,-50%); width:200px; height:200px; }
-  .role-char-img { width:500px; bottom:-120px; }
+  .role-char-img { width:550px; height:550px; top:40%; }
   .nav-left { left:8px; top:35%; }
   .nav-right { right:8px; top:35%; }
   .nav-arrow { width:40px; height:40px; }
@@ -244,7 +244,7 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 @media (min-width: 481px) and (max-width: 900px) {
   .role-info-panel { width:260px; left:10px; padding:16px; }
   .role-character-scene { left:50%; bottom:180px; width:280px; height:280px; }
-  .role-char-img { width:800px; bottom:-180px; }
+  .role-char-img { width:750px; height:750px; top:35%; }
   .nav-left { left:280px; }
 }
 
