@@ -158,6 +158,11 @@ const TILE_COLORS = {
   9: {top:"#7c4dff",left:"#651fff",right:"#6200ea"}
 };
 
+// ===== COLOR PALETTES =====
+const SHIRT_COLORS = ["#4CAF50", "#2196F3", "#F44336", "#FF9800", "#9C27B0", "#00BCD4", "#607D8B", "#FFEB3B"];
+const PANTS_COLORS = ["#37474F", "#1A237E", "#b71c1c", "#3E2723", "#1B5E20", "#263238", "#4E342E", "#212121"];
+const SHOES_COLORS = ["#212121", "#3E2723", "#4E342E", "#BDBDBD", "#795548", "#111111"];
+
 // ===== GAME STATE =====
 let gameState = {
   userId: null, userName: "", stars: 0,
