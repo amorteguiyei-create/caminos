@@ -403,7 +403,13 @@ function selectFromCarousel() {
   if (cls.exclusive) return;
   gameState.clase = cls.id;
   gameState.charColors.shirt = cls.color;
-  document.getElementById('char-carousel').classList.add('hidden');
+  
+  // Ocultar UI colateral, mantener el escenario y el personaje
+  document.querySelector('.role-info-panel:not(#color-custom)').classList.add('hidden');
+  document.querySelector('.role-strip-container').classList.add('hidden');
+  document.querySelectorAll('.nav-arrow').forEach(el => el.classList.add('hidden'));
+  document.querySelector('#role-selector > .role-select-btn').classList.add('hidden');
+  
   showColorCustomization();
 }
 
@@ -433,28 +439,28 @@ function pickColor(part, color) {
 
 function updateCustomPreview() {
   const cls = CLASSES.find(function(c) { return c.id === gameState.clase; }) || CLASSES[0];
-  const cv = document.getElementById('custom-avatar');
-  const c = cv.getContext('2d');
-  const w = cv.width, h = cv.height;
-  c.clearRect(0, 0, w, h);
-  const cx = w/2, baseY = h - 30;
-  c.beginPath(); c.ellipse(cx, baseY+5, 35, 12, 0, 0, Math.PI*2);
-  c.fillStyle = 'rgba(0,0,0,0.2)'; c.fill();
-  c.fillStyle = gameState.charColors.shoes;
-  c.fillRect(cx-18, baseY-5, 14, 8); c.fillRect(cx+4, baseY-5, 14, 8);
-  c.fillStyle = gameState.charColors.pants;
-  c.beginPath(); c.moveTo(cx-20,baseY-5); c.lineTo(cx-15,baseY-40); c.lineTo(cx+15,baseY-40); c.lineTo(cx+20,baseY-5); c.closePath(); c.fill();
-  c.fillStyle = gameState.charColors.shirt;
-  c.beginPath(); c.moveTo(cx-22,baseY-38); c.lineTo(cx-18,baseY-75); c.lineTo(cx+18,baseY-75); c.lineTo(cx+22,baseY-38); c.closePath(); c.fill();
-  c.strokeStyle = gameState.charColors.shirt; c.lineWidth = 8; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(cx-22,baseY-65); c.lineTo(cx-35,baseY-45); c.stroke();
-  c.beginPath(); c.moveTo(cx+22,baseY-65); c.lineTo(cx+35,baseY-45); c.stroke();
-  c.fillStyle = '#ffcc80';
-  c.beginPath(); c.arc(cx-35,baseY-43,6,0,Math.PI*2); c.fill();
-  c.beginPath(); c.arc(cx+35,baseY-43,6,0,Math.PI*2); c.fill();
-  c.beginPath(); c.arc(cx,baseY-90,22,0,Math.PI*2); c.fillStyle='#ffcc80'; c.fill();
-  c.fillStyle='#333'; c.fillRect(cx-8,baseY-93,4,5); c.fillRect(cx+4,baseY-93,4,5);
-  c.beginPath(); c.arc(cx,baseY-82,5,0,Math.PI); c.strokeStyle='#333'; c.lineWidth=2; c.stroke();
+  
+  if (cls.pngImage) {
+    // Es un avatar PNG de alta calidad. Aplicaremos un cambio de tono aproximativo usando CSS hue-rotate.
+    const img = document.querySelector('.role-char-img');
+    if (img) {
+      // Mapeo básico de color hexadecimal a grados de rotación (aprox)
+      let hex = gameState.charColors.shirt;
+      let rot = 0;
+      if (hex === '#F44336' || hex === '#E53935') rot = 115; // Rojo
+      if (hex === '#FF9800' || hex === '#F57C00') rot = 75; // Naranja
+      if (hex === '#2196F3' || hex === '#1E88E5') rot = -100; // Azul
+      if (hex === '#9C27B0' || hex === '#8E24AA') rot = -150; // Morado
+      if (hex === '#00BCD4' || hex === '#0097A7') rot = -50;  // Cyan
+      if (hex === '#607D8B' || hex === '#455A64') rot = 180; // Gris azulado
+      // El verde no requiere rotación porque el original es verde
+      
+      img.style.filter = 'drop-shadow(0 8px 24px rgba(0,0,0,.5)) hue-rotate(' + rot + 'deg)';
+    }
+  } else {
+    // Es un avatar Canvas. Re-dibujamos el canvas del carrusel directamente.
+    renderCarousel();
+  }
 }
 
 async function confirmCustomization() {

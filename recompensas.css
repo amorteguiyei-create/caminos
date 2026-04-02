@@ -119,20 +119,14 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 .strip-icon .material-symbols-rounded { font-size:20px; }
 .strip-active { background:rgba(255,255,255,.15); color:#fff; border-color:currentColor; transform:scale(1.1); }
 
-/* ===== COLOR CUSTOMIZATION ===== */
-#color-custom { background:linear-gradient(135deg,#1a1a2e,#16213e); }
-.custom-header { text-align:center; margin-bottom:16px; }
-.custom-header h1 { color:#ffd54f; font-size:20px; font-family:'Cinzel',serif; }
-.custom-header p { color:rgba(255,255,255,.5); font-size:13px; margin-top:4px; }
-#color-custom canvas { border-radius:12px; margin-bottom:16px; border:1px solid rgba(255,255,255,.08); }
-.color-section { width:100%; max-width:320px; margin-bottom:14px; }
-.color-section label { color:rgba(255,255,255,.7); font-size:13px; font-weight:800; display:block; margin-bottom:6px; }
+/* ===== COLOR CUSTOMIZATION SIDE PANEL ===== */
+#color-custom { left:auto; right:10px; width:280px; z-index:50; }
+.color-section { width:100%; margin-bottom:16px; }
+.color-section label { display:block; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; color:#ffd54f; }
 .color-palette { display:flex; gap:8px; flex-wrap:wrap; }
-.color-swatch { width:36px; height:36px; border-radius:10px; cursor:pointer; border:3px solid transparent; transition:.2s; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+.color-swatch { width:32px; height:32px; border-radius:10px; cursor:pointer; border:3px solid transparent; transition:.2s; box-shadow:0 2px 6px rgba(0,0,0,.3); }
 .color-swatch:hover { transform:scale(1.1); }
 .color-swatch.selected { border-color:#ffd54f; transform:scale(1.15); box-shadow:0 0 12px rgba(255,213,79,.4); }
-.confirm-custom-btn { background:linear-gradient(135deg,#ffd54f,#ff9800); color:#333; border:none; border-radius:14px; padding:14px 40px; font-size:16px; font-weight:900; font-family:'Nunito',sans-serif; cursor:pointer; margin-top:10px; box-shadow:0 4px 0 rgba(0,0,0,.2); transition:.2s; }
-.confirm-custom-btn:active { transform:translateY(2px); box-shadow:none; }
 
 /* ===== CANVAS ===== */
 #game-canvas { position:fixed; inset:0; z-index:1; display:block; }

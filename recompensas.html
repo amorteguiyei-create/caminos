@@ -79,26 +79,24 @@
     </div>
   </div>
 
-  <!-- COLOR CUSTOMIZATION -->
-  <div id="color-custom" class="game-screen hidden">
-    <div class="custom-header">
-      <h1>🎨 Personaliza tu Ciudadano</h1>
-      <p>Elige los colores de tu ropa. ¡Hazlo único!</p>
+  <!-- COLOR CUSTOMIZATION SIDE PANEL -->
+  <div id="color-custom" class="role-info-panel hidden" style="left:auto; right:10px; width:280px; z-index:50;">
+    <h2 class="role-name" style="margin-top:0; font-size:20px;">Personaliza tu Ropa</h2>
+    <p style="font-size:13px; color:rgba(255,255,255,0.7); margin-bottom:20px;">Elige los colores que te representarán en la Ciudad.</p>
+    
+    <div class="color-section" style="margin-bottom:16px;">
+      <label style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; color:#ffd54f;">Camiseta</label>
+      <div class="color-palette" id="shirt-colors" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
     </div>
-    <canvas id="custom-avatar" width="200" height="220"></canvas>
-    <div class="color-section">
-      <label>Camiseta</label>
-      <div class="color-palette" id="shirt-colors"></div>
+    <div class="color-section" style="margin-bottom:16px;">
+      <label style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; color:#ffd54f;">Pantalón</label>
+      <div class="color-palette" id="pants-colors" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
     </div>
-    <div class="color-section">
-      <label>Pantalón</label>
-      <div class="color-palette" id="pants-colors"></div>
+    <div class="color-section" style="margin-bottom:16px;">
+      <label style="display:block; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; color:#ffd54f;">Zapatos</label>
+      <div class="color-palette" id="shoes-colors" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
     </div>
-    <div class="color-section">
-      <label>Zapatos</label>
-      <div class="color-palette" id="shoes-colors"></div>
-    </div>
-    <button class="confirm-custom-btn" onclick="confirmCustomization()">¡Listo, a explorar! 🚀</button>
+    <button class="role-select-btn" style="position:relative; left:0; transform:none; bottom:0; width:100%; padding:14px 0; margin-top:10px;" onclick="confirmCustomization()">¡EMPEZAR AVENTURA!</button>
   </div>
 
   <!-- GAME CANVAS -->
