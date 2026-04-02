@@ -254,9 +254,33 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
   .game-panel { max-width:480px; left:50%; transform:translateX(-50%); border-radius:20px; bottom:20px; }
 }
 
+/* Responsive constraints for short screens (e.g. landscape phones) */
+@media (max-height: 550px) {
+  .role-select-btn { bottom:65px; padding:10px 32px; font-size:12px; }
+  .role-character-scene { bottom:100px; width:220px; height:220px; }
+  .role-char-img { height:50vh; bottom:0; }
+  .role-platform { width:200px; height:20px; }
+  .role-character-scene canvas { transform:translateX(-50%) scale(2); }
+  .role-info-panel { bottom:60px; top:50px; padding:12px; height:auto; overflow-y:auto; }
+  .role-name { font-size:18px; }
+  .nav-left { left:280px; }
+}
+
+@media (max-height: 400px) {
+  .role-select-btn { bottom:55px; padding:8px 24px; font-size:11px; }
+  .role-character-scene { bottom:85px; width:180px; height:180px; }
+  .role-char-img { height:60vh; bottom:0; }
+  .role-platform { width:160px; height:16px; bottom:-10px; }
+  .role-character-scene canvas { transform:translateX(-50%) scale(1.6); }
+  .nav-left { left:10px; top:15px; width:36px; height:36px; }
+  .nav-right { right:10px; top:15px; width:36px; height:36px; }
+  .nav-arrow .material-symbols-rounded { font-size: 20px; }
+  .role-info-panel { left:10px; top:10px; width:220px; max-height:80vh; }
+}
+
 /* Portrait Orientation Lock */
-#portrait-overlay { display: none; position: fixed; inset: 0; background: #0a0a12; z-index: 100000; flex-direction: column; align-items: center; justify-content: center; }
-#portrait-overlay .material-symbols-rounded { animation: spinPhone 2s ease-in-out infinite; }
+#portrait-overlay { display: none; position: fixed; inset: 0; background: #0a0a12; z-index: 100000; flex-direction: column; align-items: center; justify-content: center; text-align: center; color:#fff; padding:20px; }
+#portrait-overlay .material-symbols-rounded { font-size: 64px; color:#ffd54f; margin-bottom: 20px; animation: spinPhone 2s ease-in-out infinite; }
 @keyframes spinPhone { 0% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } 100% { transform: rotate(90deg); } }
 
 @media screen and (max-width: 850px) and (orientation: portrait) {
