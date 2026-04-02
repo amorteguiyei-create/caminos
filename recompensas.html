@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>La Ciudad de los Niños — CEES</title>
+  <meta name="description" content="Explora la Ciudad Educadora Espíritu Santo. 45 zonas del campus real convertidas en un mundo RPG.">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,700,1,0" rel="stylesheet">
+  <link rel="stylesheet" href="recompensas.css">
+</head>
+<body>
+
+  <!-- LOADING SCREEN -->
+  <div id="game-loader">
+    <div class="loader-content">
+      <div class="loader-city">🏰</div>
+      <h1 class="loader-title">La Ciudad de los Niños</h1>
+      <p class="loader-subtitle">Ciudad Educadora Espíritu Santo · 45 Zonas</p>
+      <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+      <p class="loader-status" id="loader-status">Conectando...</p>
+    </div>
+    <div class="loader-particles" id="loader-particles"></div>
+  </div>
+
+  <!-- CHARACTER CAROUSEL (first time) -->
+  <!-- CHARACTER SELECTION (DOFUS-style) -->
+  <div id="char-carousel" class="game-screen hidden">
+    <!-- Immersive Background -->
+    <div id="role-bg" class="role-bg"></div>
+    <div class="role-bg-overlay"></div>
+
+    <!-- Title -->
+    <div class="select-title">ELIGE TU CIUDADANO</div>
+
+    <!-- Left Info Panel -->
+    <div class="role-info-panel">
+      <div class="role-header">
+        <div class="role-emblem" id="role-emblem">🛠️</div>
+        <div>
+          <h2 class="role-name" id="role-name">Eco Maker</h2>
+          <p class="role-subtitle" id="role-subtitle">Constructor sostenible</p>
+        </div>
+      </div>
+      <p class="role-desc" id="role-desc">Descripción del rol</p>
+      <div class="role-skills" id="role-skills"></div>
+      <div class="role-impact-box">
+        <span class="material-symbols-rounded" style="color:#ffd54f;font-size:18px;">trophy</span>
+        <p class="role-impact" id="role-impact">Impacto en la ciudad...</p>
+      </div>
+    </div>
+
+    <!-- Center Character Scene -->
+    <div class="role-character-scene">
+      <img id="role-char-img" class="role-char-img" src="" alt="Personaje" style="display:none;">
+      <canvas id="carousel-avatar" width="200" height="220"></canvas>
+      <!-- Platform glow -->
+      <div class="role-platform"></div>
+    </div>
+
+    <!-- Navigation Arrows -->
+    <button class="nav-arrow nav-left" onclick="carouselPrev()"><span class="material-symbols-rounded">chevron_left</span></button>
+    <button class="nav-arrow nav-right" onclick="carouselNext()"><span class="material-symbols-rounded">chevron_right</span></button>
+
+    <!-- Select Button -->
+    <button class="role-select-btn" id="carousel-select-btn" onclick="selectFromCarousel()">CONVERTIRME EN ECO MAKER</button>
+
+    <!-- Bottom Role Strip -->
+    <div class="role-strip-container">
+      <div class="role-strip" id="role-strip"></div>
+    </div>
+  </div>
+
+  <!-- COLOR CUSTOMIZATION -->
+  <div id="color-custom" class="game-screen hidden">
+    <div class="custom-header">
+      <h1>🎨 Personaliza tu Ciudadano</h1>
+      <p>Elige los colores de tu ropa. ¡Hazlo único!</p>
+    </div>
+    <canvas id="custom-avatar" width="200" height="220"></canvas>
+    <div class="color-section">
+      <label>Camiseta</label>
+      <div class="color-palette" id="shirt-colors"></div>
+    </div>
+    <div class="color-section">
+      <label>Pantalón</label>
+      <div class="color-palette" id="pants-colors"></div>
+    </div>
+    <div class="color-section">
+      <label>Zapatos</label>
+      <div class="color-palette" id="shoes-colors"></div>
+    </div>
+    <button class="confirm-custom-btn" onclick="confirmCustomization()">¡Listo, a explorar! 🚀</button>
+  </div>
+
+  <!-- GAME CANVAS -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="game-hud" class="hidden">
+    <div class="hud-top">
+      <button id="btn-back" class="hud-btn-icon" onclick="volverACaminos()" title="Volver">
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
+      <div class="hud-zone" id="hud-zone-name">Zona</div>
+      <div class="hud-stats">
+        <div class="hud-stat hud-stars">
+          <span class="material-symbols-rounded" style="color:#ffd54f">star</span>
+          <span id="hud-stars">0</span>
+        </div>
+        <div class="hud-stat hud-level">
+          <span>Nv</span><span id="hud-level">1</span>
+        </div>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <button class="hud-action-btn" onclick="openCharPanel()">
+        <span class="material-symbols-rounded">person</span>
+        <span class="hud-action-label">Perfil</span>
+      </button>
+      <button class="hud-action-btn" onclick="openMissionsPanel()">
+        <span class="material-symbols-rounded">assignment</span>
+        <span class="hud-action-label">Misiones</span>
+      </button>
+      <button class="hud-action-btn" onclick="openWorldMap()">
+        <span class="material-symbols-rounded">map</span>
+        <span class="hud-action-label">Mapa</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ZONE TRANSITION -->
+  <div id="zone-transition" class="hidden">
+    <div class="transition-inner">
+      <div class="transition-icon" id="transition-icon">🌿</div>
+      <div class="transition-text" id="transition-text">Cargando zona...</div>
+    </div>
+  </div>
+
+  <!-- BUILDING PANEL -->
+  <div id="building-overlay" class="panel-overlay hidden" onclick="closeBuildingPanel()"></div>
+  <div id="building-panel" class="game-panel hidden">
+    <div class="panel-head">
+      <div><span class="panel-icon" id="building-icon">🏛️</span><h2 id="building-name">Edificio</h2></div>
+      <button onclick="closeBuildingPanel()" class="panel-x">&times;</button>
+    </div>
+    <p id="building-desc" class="panel-desc">Descripción</p>
+    <div id="building-req" class="building-req"></div>
+    <button id="building-enter-btn" class="panel-cta" onclick="enterBuilding()">Explorar</button>
+  </div>
+
+  <!-- CHARACTER PANEL -->
+  <div id="char-overlay" class="panel-overlay hidden" onclick="closeCharPanel()"></div>
+  <div id="char-panel" class="game-panel hidden">
+    <div class="panel-head">
+      <div><span class="panel-icon">🧑‍🎓</span><h2>Mi Ciudadano</h2></div>
+      <button onclick="closeCharPanel()" class="panel-x">&times;</button>
+    </div>
+    <div id="char-info" class="panel-body"></div>
+  </div>
+
+  <!-- MISSIONS PANEL -->
+  <div id="missions-overlay" class="panel-overlay hidden" onclick="closeMissionsPanel()"></div>
+  <div id="missions-panel" class="game-panel hidden">
+    <div class="panel-head">
+      <div><span class="panel-icon">📜</span><h2>Misiones</h2></div>
+      <button onclick="closeMissionsPanel()" class="panel-x">&times;</button>
+    </div>
+    <div id="missions-list" class="panel-body">
+      <p class="panel-empty">Las misiones estarán disponibles pronto...</p>
+    </div>
+  </div>
+
+  <!-- WORLD MAP PANEL -->
+  <div id="worldmap-overlay" class="panel-overlay hidden" onclick="closeWorldMap()"></div>
+  <div id="worldmap-panel" class="game-panel game-panel-large hidden">
+    <div class="panel-head">
+      <div><span class="panel-icon">🗺️</span><h2>Campus CEES</h2></div>
+      <button onclick="closeWorldMap()" class="panel-x">&times;</button>
+    </div>
+    <div class="worldmap-body">
+      <canvas id="worldmap-canvas" width="400" height="300"></canvas>
+      <p class="worldmap-hint">🔴 Tu posición actual</p>
+    </div>
+  </div>
+
+  <!-- MOBILE D-PAD -->
+  <div id="mobile-dpad" class="hidden">
+    <button class="dpad-btn dpad-up" ontouchstart="dpadMove('up')" onmousedown="dpadMove('up')"><span class="material-symbols-rounded">expand_less</span></button>
+    <button class="dpad-btn dpad-left" ontouchstart="dpadMove('left')" onmousedown="dpadMove('left')"><span class="material-symbols-rounded">chevron_left</span></button>
+    <button class="dpad-btn dpad-right" ontouchstart="dpadMove('right')" onmousedown="dpadMove('right')"><span class="material-symbols-rounded">chevron_right</span></button>
+    <button class="dpad-btn dpad-down" ontouchstart="dpadMove('down')" onmousedown="dpadMove('down')"><span class="material-symbols-rounded">expand_more</span></button>
+  </div>
+
+  <!-- Firebase + Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+  <script src="zones.js"></script>
+  <script src="recompensas.js"></script>
+</body>
+</html>

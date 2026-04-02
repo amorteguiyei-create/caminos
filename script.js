@@ -342,6 +342,17 @@ function iniciarApp(isLogged) {
           btnLogout.onmouseout = () => btnLogout.style.background = '#fff';
           document.body.appendChild(btnLogout);
 
+          // BOTÓN DE ACCESO A RECOMPENSAS (CIUDAD DE LOS NIÑOS)
+          var btnRecompensas = document.createElement('button');
+          btnRecompensas.id = "btn-recompensas-estudiante";
+          btnRecompensas.innerHTML = '<span class="material-symbols-rounded" style="font-size: 28px;">castle</span>';
+          btnRecompensas.style.cssText = "position: fixed; bottom: 255px; left: 30px; z-index: 9991; background: linear-gradient(135deg,#1a237e,#0d47a1); color: #ffd54f; width: 60px; height: 60px; border-radius: 30px; border: 2px solid #ffd54f55; box-shadow: 0 4px 15px rgba(13,71,161,0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;";
+          btnRecompensas.title = "Explorar La Ciudad de los Niños";
+          btnRecompensas.onclick = abrirCiudadNinos;
+          btnRecompensas.onmouseover = () => btnRecompensas.style.transform = 'scale(1.1)';
+          btnRecompensas.onmouseout = () => btnRecompensas.style.transform = 'scale(1)';
+          document.body.appendChild(btnRecompensas);
+
           var globalOrder = ['colibri', 'abeja', 'halcon', 'mariposa', 'albatros'];
           var currentUnitIndex = globalOrder.indexOf(faseParts[0]);
           
@@ -398,8 +409,10 @@ function cerrarSesionEstudiante() {
   // Remover botones dinámicos
   const rBtn = document.querySelector('button[style*="bottom: 105px"]');
   const lBtn = document.getElementById('btn-logout-estudiante');
+  const rcBtn = document.getElementById('btn-recompensas-estudiante');
   if(rBtn) rBtn.remove();
   if(lBtn) lBtn.remove();
+  if(rcBtn) rcBtn.remove();
   
   // Resetear otros elementos
   document.getElementById('user-greeting').textContent = "Convivencia Escolar";
@@ -657,7 +670,23 @@ function abrirHistorial(tipoStr) {
   var animalIconEl = document.getElementById('sheet-animal-icon');
   if (animalIconEl) animalIconEl.textContent = isEstrella ? '🌟' : '⚠️';
   
-  document.getElementById('sheet-desc').innerHTML = '<p style="text-align:center;">Cargando historial...</p>';
+  // Botón de acceso a La Ciudad de los Niños
+  let ciudadBtn = '';
+  if (isEstrella) {
+    ciudadBtn = `<div style="text-align:center;margin-bottom:18px;">
+      <button onclick="abrirCiudadNinos()" style="
+        background:linear-gradient(135deg,#1a237e,#0d47a1);
+        color:#ffd54f;border:2px solid #ffd54f33;border-radius:16px;
+        padding:14px 28px;font-size:15px;font-weight:900;cursor:pointer;
+        font-family:Nunito,sans-serif;letter-spacing:1px;width:100%;
+        box-shadow:0 4px 20px rgba(13,71,161,0.4);
+        display:flex;align-items:center;justify-content:center;gap:10px;">
+        🏰 Explorar La Ciudad de los Niños
+      </button>
+    </div>`;
+  }
+
+  document.getElementById('sheet-desc').innerHTML = ciudadBtn + '<p style="text-align:center;">Cargando historial...</p>';
   
   db.collection('ciudadano').doc(currentUser.id).collection('historial')
     .get().then(snap => {
@@ -707,6 +736,17 @@ function abrirHistorial(tipoStr) {
 
 function abrirHistorialEstrellas() { abrirHistorial('Acto'); }
 function abrirHistorialFaltas() { abrirHistorial('Falta'); }
+
+// ==== ACCESO A LA CIUDAD DE LOS NIÑOS (RPG) ====
+function abrirCiudadNinos() {
+  if (!currentUser) return;
+  sessionStorage.setItem('ciudadanoJuego', JSON.stringify({
+    id: currentUser.id,
+    nombre: currentUser.nombre || currentUser.id,
+    estrellas: currentUser.estrellas || 0
+  }));
+  window.location.href = 'recompensas.html';
+}
 
 // ==== INTEGRACION RECONOCIMIENTO DE VOZ ====
 function hablarConJhoncito() {
