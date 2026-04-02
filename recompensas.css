@@ -72,12 +72,12 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 .role-impact { color:rgba(255,255,255,.55); font-size:11px; line-height:1.5; font-style:italic; }
 
 /* Character Scene */
-.role-character-scene { position:absolute; left:calc(50vw + 167px); bottom:130px; transform:translateX(-50%); z-index:5;
+.role-character-scene { position:absolute; left:50%; bottom:130px; transform:translateX(-50%); z-index:5;
   display:flex; flex-direction:column; align-items:center; pointer-events:none;
 }
-.role-char-img { width:950px; max-width:none; height:auto; object-fit:contain; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)); animation:charBreath 4s ease-in-out infinite; margin-bottom:-250px; }
+.role-char-img { width:1200px; max-width:none; height:auto; object-fit:contain; filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)); animation:charBreath 4s ease-in-out infinite; margin-bottom:-320px; }
 .role-character-scene canvas { filter:drop-shadow(0 4px 16px rgba(0,0,0,.4)); margin-bottom:-50px; }
-.role-platform { width:300px; height:30px; background:radial-gradient(ellipse, rgba(76,175,80,.4), transparent 70%); border-radius:50%; margin-top:-20px; animation:platformPulse 3s ease-in-out infinite; }
+.role-platform { width:340px; height:34px; background:radial-gradient(ellipse, rgba(76,175,80,.4), transparent 70%); border-radius:50%; margin-top:-20px; animation:platformPulse 3s ease-in-out infinite; }
 @keyframes charBreath { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 @keyframes platformPulse { 0%,100%{opacity:.5;transform:scaleX(1)} 50%{opacity:1;transform:scaleX(1.1)} }
 
@@ -243,8 +243,8 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 
 @media (min-width: 481px) and (max-width: 900px) {
   .role-info-panel { width:260px; left:10px; padding:16px; }
-  .role-character-scene { left:calc(50vw + 130px); bottom:15%; } /* Re-centered for tablet */
-  .role-char-img { width:550px; max-width:65vw; margin-bottom:-100px; }
+  .role-character-scene { left:50%; bottom:15%; } /* Center aligned */
+  .role-char-img { width:800px; max-width:85vw; margin-bottom:-200px; }
   .nav-left { left:280px; }
 }
 
