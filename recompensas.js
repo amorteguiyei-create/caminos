@@ -889,7 +889,7 @@ function render() {
       } else if (tile === 7) {
         drawWater(pos.x, pos.y);
       } else if (tile === 9) {
-        drawSquare(pos.x, pos.y, TILE_COLORS[9]);
+        drawSquare(pos.x, pos.y, TILE_COLORS[1]); // Base de grass bajo el portal
         drawPortalEffect(pos.x, pos.y);
       } else {
         const colors = TILE_COLORS[tile];
@@ -995,6 +995,9 @@ function drawBuilding2D(b) {
   else if (b.shape === "pandora_triangle") drawPandoraBuilding(x, y, bw, bh, b);
   else if (b.shape === "dystopia_triangle") drawDystopiaBuilding(x, y, bw, bh, b);
   else if (b.shape === "dystopia_triangle_2") drawDystopiaTriangle2Building(x, y, bw, bh, b);
+  else if (b.shape === "district12_upper") drawDistrict12Upper(x, y, bw, bh, b);
+  else if (b.shape === "district12_lower") drawDistrict12Lower(x, y, bw, bh, b);
+  else if (b.shape === "rotonda") drawRotonda(x, y, bw, bh, b);
   else if (b.shape === "volleyball_court") drawVolleyballCourt(x, y, bw, bh, b);
   else if (b.shape === "aux_football_court") drawAuxFootballCourt(x, y, bw, bh, b);
   else if (b.shape === "hs_wing") drawHighSchoolWing(x, y, bw, bh, b);
@@ -1338,6 +1341,207 @@ function drawDystopiaTriangle2Building(x, y, bw, bh, b) {
   ctx.lineTo(x + bw - 2, y + bh - 2);
   ctx.closePath();
   ctx.stroke();
+}
+
+// ===== DISTRICT 12 — TRIÁNGULO SUPERIOR ODS 10 =====
+function drawDistrict12Upper(x, y, bw, bh, b) {
+  // Triángulo apuntando a la derecha (base izquierda, punta en col 5)
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 5);
+  ctx.lineTo(x + bw + 10, y + bh/2 + 5);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Magenta ODS 10
+  ctx.fillStyle = "#dd1367";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y + bh / 2);
+  ctx.lineTo(x, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mitad sombreada inferior
+  ctx.fillStyle = "#a80e50";
+  ctx.beginPath();
+  ctx.moveTo(x, y + bh / 2);
+  ctx.lineTo(x + bw, y + bh / 2);
+  ctx.lineTo(x, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Líneas arquitectónicas decorativas
+  ctx.strokeStyle = "#f48fb1";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 15, y + 15);
+  ctx.lineTo(x + bw - 15, y + bh / 2);
+  ctx.lineTo(x + 15, y + bh - 15);
+  ctx.stroke();
+
+  // Logo ODS 10
+  ctx.save();
+  ctx.fillStyle = "#fff";
+
+  // "10" grande
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("10", x + TILE_W * 0.4, y + bh/2 + 8);
+
+  // Texto ODS 10
+  ctx.font = "bold " + Math.floor(TILE_W * 0.14) + "px Arial";
+  ctx.fillText("REDUCED", x + TILE_W * 1.6, y + bh/2 - 8);
+  ctx.fillText("INEQUALITIES", x + TILE_W * 1.6, y + bh/2 + 5);
+
+  // Símbolo igualdad
+  ctx.fillRect(x + TILE_W * 1.7, y + bh/2 + 14, 16, 2);
+  ctx.fillRect(x + TILE_W * 1.7, y + bh/2 + 19, 16, 2);
+
+  // Flecha del símbolo
+  ctx.beginPath();
+  ctx.moveTo(x + TILE_W * 1.7 + 20, y + bh/2 + 13);
+  ctx.lineTo(x + TILE_W * 1.7 + 26, y + bh/2 + 17);
+  ctx.lineTo(x + TILE_W * 1.7 + 20, y + bh/2 + 21);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ===== DISTRICT 12 — TRIÁNGULO INFERIOR ODS 10 =====
+function drawDistrict12Lower(x, y, bw, bh, b) {
+  // Mismo estilo que el superior pero más alto
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 5);
+  ctx.lineTo(x + bw + 10, y + bh/2 + 5);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Magenta ODS 10
+  ctx.fillStyle = "#dd1367";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y + bh / 2);
+  ctx.lineTo(x, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mitad sombreada inferior
+  ctx.fillStyle = "#a80e50";
+  ctx.beginPath();
+  ctx.moveTo(x, y + bh / 2);
+  ctx.lineTo(x + bw, y + bh / 2);
+  ctx.lineTo(x, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Líneas arquitectónicas decorativas
+  ctx.strokeStyle = "#f48fb1";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 15, y + 15);
+  ctx.lineTo(x + bw - 15, y + bh / 2);
+  ctx.lineTo(x + 15, y + bh - 15);
+  ctx.stroke();
+
+  // Detalle interior — ventanas abstractas ODS 10
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  const winRows = 3;
+  const winSize = Math.min(TILE_W * 0.2, bh / 10);
+  for (let i = 0; i < winRows; i++) {
+    const wy = y + bh * 0.3 + i * winSize * 2;
+    const maxCols = Math.floor((bw * 0.4) * (1 - Math.abs(i - 1) / 3));
+    for (let j = 0; j < maxCols; j++) {
+      ctx.fillRect(x + TILE_W * 0.5 + j * winSize * 1.5, wy, winSize, winSize);
+    }
+  }
+}
+
+// ===== ROTONDA (Glorieta circular transitable) =====
+function drawRotonda(x, y, bw, bh, b) {
+  const cx = x + bw / 2;
+  const cy = y + bh / 2;
+  const outerR = Math.min(bw, bh) / 2 - 2;
+  const roadW = outerR * 0.3;
+  const innerR = outerR - roadW;
+
+  // Sombra de la rotonda
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath();
+  ctx.arc(cx + 3, cy + 3, outerR + 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Anillo de carretera (asfalto gris)
+  ctx.fillStyle = "#616161";
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Isla central de césped
+  ctx.fillStyle = "#4caf50";
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Textura de césped (circulos más oscuros)
+  ctx.fillStyle = "#388e3c";
+  ctx.beginPath();
+  ctx.arc(cx - innerR * 0.2, cy - innerR * 0.1, innerR * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#2e7d32";
+  ctx.beginPath();
+  ctx.arc(cx + innerR * 0.15, cy + innerR * 0.2, innerR * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Elemento decorativo central (fuente/monumento pequeño)
+  ctx.fillStyle = "#795548";
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#a1887f";
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Líneas de demarcación vial (línea discontinua en el centro del carril)
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  const midR = innerR + roadW / 2;
+  ctx.arc(cx, cy, midR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Borde exterior blanco
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Borde interior blanco
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Marcas de paso peatonal (4 entradas cardinales)
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  const dirs = [0, Math.PI/2, Math.PI, Math.PI * 1.5]; // N, E, S, W
+  dirs.forEach(angle => {
+    for (let s = 0; s < 3; s++) {
+      const r1 = innerR + s * (roadW / 3);
+      const perpOff = 3;
+      const px = cx + Math.cos(angle) * r1;
+      const py = cy + Math.sin(angle) * r1;
+      ctx.fillRect(px - 1, py - perpOff, 2, perpOff * 2);
+    }
+  });
 }
 
 // ===== EDIFICIO NEVERLAND 2 (TRIÁNGULO RECTÁNGULO ODS 12) =====
@@ -2154,11 +2358,80 @@ function drawFountain(x, y) {
   ctx.fillStyle = "rgba(66,165,245,0.6)"; ctx.fill();
 }
 function drawPortalEffect(x, y) {
-  const glow = 0.4 + Math.sin(animTime*3)*0.3;
-  ctx.beginPath(); ctx.arc(x+TILE_W/2, y+TILE_H/2, 15+Math.sin(animTime*2)*4, 0, Math.PI*2);
-  ctx.fillStyle = "rgba(124,77,255,"+glow+")"; ctx.fill();
-  ctx.beginPath(); ctx.arc(x+TILE_W/2, y+TILE_H/2, 8, 0, Math.PI*2);
-  ctx.fillStyle = "rgba(200,180,255,0.8)"; ctx.fill();
+  const cx = x + TILE_W/2;
+  const cy = y + TILE_H/2;
+  const t = animTime;
+  const pulse = 0.8 + Math.sin(t * 2) * 0.2;
+  const baseR = TILE_W * 0.38;
+
+  // Outer glow aura
+  const outerGlow = ctx.createRadialGradient(cx, cy, baseR * 0.3, cx, cy, baseR * 1.8);
+  outerGlow.addColorStop(0, "rgba(30,136,229," + (0.25 * pulse) + ")");
+  outerGlow.addColorStop(0.5, "rgba(0,176,255," + (0.12 * pulse) + ")");
+  outerGlow.addColorStop(1, "rgba(0,176,255,0)");
+  ctx.fillStyle = outerGlow;
+  ctx.fillRect(cx - baseR * 2, cy - baseR * 2, baseR * 4, baseR * 4);
+
+  // Rotating energy ring (outer)
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(t * 1.5);
+  ctx.strokeStyle = "rgba(0,176,255," + (0.6 * pulse) + ")";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, baseR, 0, Math.PI * 1.6);
+  ctx.stroke();
+  ctx.restore();
+
+  // Counter-rotating inner ring
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-t * 2.2);
+  ctx.strokeStyle = "rgba(100,200,255," + (0.7 * pulse) + ")";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, baseR * 0.6, 0.3, Math.PI * 1.4 + 0.3);
+  ctx.stroke();
+  ctx.restore();
+
+  // Lightning rays (6 rays rotating)
+  ctx.save();
+  ctx.translate(cx, cy);
+  for (let i = 0; i < 6; i++) {
+    const angle = (t * 0.8) + (i * Math.PI / 3);
+    const rayLen = baseR * (0.7 + Math.sin(t * 4 + i * 1.5) * 0.3);
+    const midAngle = angle + Math.sin(t * 6 + i) * 0.15;
+    ctx.strokeStyle = "rgba(130,220,255," + (0.4 + Math.sin(t * 5 + i) * 0.3) + ")";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * baseR * 0.3, Math.sin(angle) * baseR * 0.3);
+    ctx.lineTo(Math.cos(midAngle) * rayLen * 0.6, Math.sin(midAngle) * rayLen * 0.6);
+    ctx.lineTo(Math.cos(angle) * rayLen, Math.sin(angle) * rayLen);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Bright white center core
+  const coreGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.35);
+  coreGlow.addColorStop(0, "rgba(255,255,255," + (0.9 * pulse) + ")");
+  coreGlow.addColorStop(0.5, "rgba(180,230,255," + (0.5 * pulse) + ")");
+  coreGlow.addColorStop(1, "rgba(30,136,229,0)");
+  ctx.fillStyle = coreGlow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tiny sparkles
+  for (let i = 0; i < 4; i++) {
+    const sa = t * 3 + i * Math.PI * 0.5;
+    const sr = baseR * (0.5 + Math.sin(t * 2 + i * 2) * 0.4);
+    const sx = cx + Math.cos(sa) * sr;
+    const sy = cy + Math.sin(sa) * sr;
+    ctx.fillStyle = "rgba(200,240,255," + (0.5 + Math.sin(t * 7 + i) * 0.4) + ")";
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 function drawCharacter(x, y, data) {
   const cx = x + TILE_W/2;
