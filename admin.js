@@ -309,7 +309,7 @@ function loadHistory(studentId) {
               <span class="badge ${data.tipo === 'Falta' ? 'falta' : 'acto'}">${data.tipo}</span>
               <span class="date">${data.fecha}</span>
             </div>
-            <button onclick="deleteRecord('${doc.id}', '${data.tipo}')" style="width: auto; padding: 4px 8px; background: transparent; color: #e53935; border: none; box-shadow: none;" title="Borrar Registro (Clave: 1023)"><span class="material-symbols-rounded">delete</span></button>
+            <button onclick="deleteRecord('${doc.id}', '${data.tipo}')" style="width: auto; padding: 4px 8px; background: transparent; color: #e53935; border: none; box-shadow: none;" title="Borrar Registro"><span class="material-symbols-rounded">delete</span></button>
           </div>
           <p style="margin: 0; font-size: 15px;">${data.descripcion}</p>
         `;
@@ -385,9 +385,9 @@ function addRecord() {
 }
 
 function deleteRecord(recordId, tipo) {
-  const pin = window.prompt("Ingrese el código de acceso (1023) para eliminar este registro permanentemente:");
+  const pin = window.prompt("🔐 Ingrese el PIN de seguridad para eliminar este registro permanentemente:");
   if (pin !== "1023") {
-    if(pin !== null) alert("Código incorrecto. Operación cancelada.");
+    if(pin !== null) alert("PIN incorrecto. Operación cancelada.");
     return;
   }
   
@@ -716,14 +716,24 @@ async function guardarEdicionCiudadano() {
 }
 
 async function borrarBaseDeDatosCompleta() {
-  const pin = window.prompt("⚠️ CUIDADO: Estás a punto de borrar absolutamente toda la base de datos de ciudadanos. Ingresa el PIN (1023) maestro para proceder:");
+  // PASO 1: PIN de seguridad reforzado
+  const pin = window.prompt("🔐 OPERACIÓN CRÍTICA: Ingresa el PIN maestro para proceder con el borrado total:");
   if(pin !== "1023") {
     if(pin !== null) alert("PIN incorrecto. Operación abortada.");
     return;
   }
   
-  const confirm = window.confirm("¿Estás COMPLETAMENTE SEGURO? Esta acción es irreversible y tu panel quedará vacío.");
-  if(!confirm) return;
+  // PASO 2: Confirmación escribiendo texto exacto
+  const totalStudents = allStudents.length;
+  const confirmText = window.prompt("⚠️ Estás a punto de borrar " + totalStudents + " ciudadanos y todo su historial.\n\nEscribe exactamente: BORRAR TODO\n\npara confirmar:");
+  if(confirmText !== "BORRAR TODO") {
+    alert("Texto incorrecto. Operación cancelada por seguridad.");
+    return;
+  }
+
+  // PASO 3: Última confirmación con cuenta regresiva
+  const finalConfirm = window.confirm("🚨 ÚLTIMA CONFIRMACIÓN 🚨\n\nVas a eliminar permanentemente:\n• " + totalStudents + " ciudadanos\n• Todos sus historiales\n• Todas sus bitácoras\n\nEsta acción es 100% IRREVERSIBLE.\n\n¿Proceder?");
+  if(!finalConfirm) return;
   
   document.body.style.cursor = "wait";
   alert("Iniciando borrado maestro. Por favor NO cierres la ventana hasta terminar.");
@@ -766,7 +776,7 @@ async function eliminarCiudadanoIndividual() {
   const cod = document.getElementById('edit-old-cod').value;
   if(!cod) return;
   
-  const pin = window.prompt("Ingrese PIN (1023) para eliminar permanentemente al estudiante con código: " + cod);
+  const pin = window.prompt("🔐 Ingrese el PIN de seguridad para eliminar permanentemente al estudiante con código: " + cod);
   if (pin !== "1023") {
       if(pin !== null) alert("PIN incorrecto.");
       return;
