@@ -641,7 +641,8 @@ async function confirmCustomization() {
 async function startGame() {
   gameState.gameReady = true;
   document.getElementById('game-hud').classList.remove('hidden');
-  document.getElementById('mobile-dpad').classList.remove('hidden');
+  document.getElementById('joystick-zone').classList.remove('hidden');
+  initJoystick();
   initPlayerSync();
   await saveProgress(); // PRIMERO registrar SESSION_ID en Firestore
   initSessionGuard(); // DESPUÉS activar el guard (ya tiene nuestro sessionId)
@@ -662,6 +663,11 @@ function gameLoop(ts) {
 }
 
 function update(dt) {
+  // Inject continuous joystick movement
+  if (currentJoystickDir && !gameState.charMoving && gameState.charPath.length === 0) {
+    dpadMove(currentJoystickDir);
+  }
+
   // Move along path
   if (gameState.charPath.length > 0 && !gameState.charMoving) {
     const next = gameState.charPath.shift();
@@ -863,7 +869,7 @@ function render() {
     for (let i = 0; i < zone.b.length; i++) {
         const b = zone.b[i];
         let d = (b.r + b.h * 0.7) * 100 + b.c;
-        if (b.shape === "volleyball_court" || b.shape === "aux_football_court") d = 0; // Render behind characters
+        if (b.shape === "volleyball_court" || b.shape === "aux_football_court" || b.shape === "rotonda") d = 0; // Render behind characters
         if (b.shape === "hs_bridge") d = (b.r + b.h + 5) * 100 + b.c + 1000; // Render above characters
         objects.push({type: "building", b: b, depth: d});
     }
@@ -890,10 +896,10 @@ function render() {
         drawWater(pos.x, pos.y);
       } else if (tile === 9) {
         drawSquare(pos.x, pos.y, TILE_COLORS[1]); // Base de grass bajo el portal
-        // Solo renderizar el efecto en la esquina superior-izquierda del pad 2x2
+        // Solo pushear el efecto en la esquina superior-izquierda del pad 2x2
         const isTopLeft = (row === 0 || map[row-1][col] !== 9) && (col === 0 || map[row][col-1] !== 9);
         if (isTopLeft) {
-          drawPortalEffect2x2(pos.x, pos.y);
+          objects.push({type: "portal", x: pos.x, y: pos.y, depth: 0});
         }
       } else {
         const colors = TILE_COLORS[tile];
@@ -919,7 +925,8 @@ function render() {
 
   objects.sort(function(a,b){ return a.depth - b.depth; });
   objects.forEach(function(obj) {
-    if (obj.type === "building") drawBuilding2D(obj.b);
+    if (obj.type === "portal") drawPortalEffect2x2(obj.x, obj.y);
+    else if (obj.type === "building") drawBuilding2D(obj.b);
     else if (obj.type === "tree") drawTree(obj.x, obj.y);
     else if (obj.type === "char") {
        drawCharacter(obj.x, obj.y, {name: gameState.userName, colors: gameState.charColors, clase: gameState.clase, msg: gameState.lastMessage, msgTime: gameState.messageTime});
@@ -1001,11 +1008,19 @@ function drawBuilding2D(b) {
   else if (b.shape === "dystopia_triangle_2") drawDystopiaTriangle2Building(x, y, bw, bh, b);
   else if (b.shape === "district12_upper") drawDistrict12Upper(x, y, bw, bh, b);
   else if (b.shape === "district12_lower") drawDistrict12Lower(x, y, bw, bh, b);
+  else if (b.shape === "atlantis_upper") drawAtlantisUpper(x, y, bw, bh, b);
+  else if (b.shape === "atlantis_lower") drawAtlantisLower(x, y, bw, bh, b);
+  else if (b.shape === "sj_upper") drawSpaceJumpersUpper(x, y, bw, bh, b);
+  else if (b.shape === "sj_lower") drawSpaceJumpersLower(x, y, bw, bh, b);
+  else if (b.shape === "kin_upper") drawKintsugiUpper(x, y, bw, bh, b);
+  else if (b.shape === "kin_lower") drawKintsugiLower(x, y, bw, bh, b);
   else if (b.shape === "rotonda") drawRotonda(x, y, bw, bh, b);
   else if (b.shape === "volleyball_court") drawVolleyballCourt(x, y, bw, bh, b);
   else if (b.shape === "aux_football_court") drawAuxFootballCourt(x, y, bw, bh, b);
   else if (b.shape === "hs_wing") drawHighSchoolWing(x, y, bw, bh, b);
   else if (b.shape === "hs_bridge") drawHighSchoolBridge(x, y, bw, bh, b);
+  else if (b.shape === "crops") drawCrops(x, y, bw, bh, b);
+  else if (b.shape === "biodiversity_house") drawBiodiversityHouse(x, y, bw, bh, b);
   else {
     // Si no tiene shape específica, seleccionar estilo según el icono/tipo del edificio
     const icon = b.i || "🏢";
@@ -1022,6 +1037,102 @@ function drawBuilding2D(b) {
     else if (icon === "🌀") drawPortalBuilding(x, y, bw, bh, b);
     else drawGenericBuilding(x, y, bw, bh, b);
   }
+}
+
+// ===== ATLANTIS — TRIÁNGULO SUPERIOR ODS 6 =====
+function drawAtlantisUpper(x, y, bw, bh, b) {
+  // Triángulo que apunta hacia arriba (como Neverland)
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + 10);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.lineTo(x + bw + 5, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Cyan ODS 6
+  ctx.fillStyle = "#26bde2"; 
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y); // Punta arriba
+  ctx.lineTo(x, y + bh); // Abajo izq
+  ctx.lineTo(x + bw, y + bh); // Abajo der
+  ctx.closePath();
+  ctx.fill();
+
+  // Techo / Relieve oscuro
+  ctx.fillStyle = "#1c96b5"; // Cyan oscuro
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y);
+  ctx.lineTo(x + bw/2, y + bh);
+  ctx.lineTo(x + bw, y + bh); 
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiras decorativas
+  ctx.strokeStyle = "#80e2fc"; 
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + 15);
+  ctx.lineTo(x + 15, y + bh - 10);
+  ctx.lineTo(x + bw - 15, y + bh - 10);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Logo ODS 6
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  
+  // Texto "6" a la izquierda
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("6", x + bw/2 - TILE_W * 0.8, y + bh - 18);
+  
+  // Textos ODS 6
+  ctx.textAlign = "left";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.16) + "px Arial";
+  ctx.fillText("CLEAN WATER", x + bw/2 - TILE_W * 0.6, y + bh - 30);
+  ctx.fillText("AND SANITATION", x + bw/2 - TILE_W * 0.6, y + bh - 18);
+  
+  // Símbolo gota de agua ODS 6
+  const ix = x + bw/2 + TILE_W * 1.5;
+  const iy = y + bh - 20;
+  ctx.beginPath();
+  ctx.moveTo(ix, iy - 10); // Punta superior de la gota
+  ctx.bezierCurveTo(ix + 8, iy, ix + 8, iy + 10, ix, iy + 10); // Lado derecho
+  ctx.bezierCurveTo(ix - 8, iy + 10, ix - 8, iy, ix, iy - 10); // Lado izquierdo
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ===== ATLANTIS — TRIÁNGULO INFERIOR ODS 6 =====
+function drawAtlantisLower(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y + 10);
+  ctx.lineTo(x + bw + 10, y + 10);
+  ctx.lineTo(x + bw + 10, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Cyan ODS 6
+  ctx.fillStyle = "#26bde2"; 
+  ctx.beginPath();
+  ctx.moveTo(x, y); // Top left
+  ctx.lineTo(x + bw, y); // Top right
+  ctx.lineTo(x + bw, y + bh); // Bottom right
+  ctx.closePath();
+  ctx.fill();
+
+  // Borde arquitectónico para darle volumen
+  ctx.strokeStyle = "#80e2fc"; 
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.stroke();
 }
 
 // ===== EDIFICIO ATELIER (TRIÁNGULAR HACIA ABAJO) =====
@@ -1450,18 +1561,160 @@ function drawDistrict12Lower(x, y, bw, bh, b) {
   ctx.lineTo(x + bw - 15, y + bh / 2);
   ctx.lineTo(x + 15, y + bh - 15);
   ctx.stroke();
+}
 
-  // Detalle interior — ventanas abstractas ODS 10
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  const winRows = 3;
-  const winSize = Math.min(TILE_W * 0.2, bh / 10);
-  for (let i = 0; i < winRows; i++) {
-    const wy = y + bh * 0.3 + i * winSize * 2;
-    const maxCols = Math.floor((bw * 0.4) * (1 - Math.abs(i - 1) / 3));
-    for (let j = 0; j < maxCols; j++) {
-      ctx.fillRect(x + TILE_W * 0.5 + j * winSize * 1.5, wy, winSize, winSize);
-    }
-  }
+// ===== SPACE JUMPERS — ODS 2 (Mostaza) =====
+function drawSpaceJumpersUpper(x, y, bw, bh, b) {
+  // Isósceles UP
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + 10);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.lineTo(x + bw + 5, y + bh + 10);
+  ctx.fill();
+
+  ctx.fillStyle = "#d3a029"; // ODS 2 Mostaza
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y); 
+  ctx.lineTo(x, y + bh); 
+  ctx.lineTo(x + bw, y + bh); 
+  ctx.closePath();
+  ctx.fill();
+
+  // Relieve oscuro derecho
+  ctx.fillStyle = "#b08522";
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y);
+  ctx.lineTo(x + bw/2, y + bh);
+  ctx.lineTo(x + bw, y + bh); 
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#fad473"; 
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + 15);
+  ctx.lineTo(x + 15, y + bh - 10);
+  ctx.lineTo(x + bw - 15, y + bh - 10);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Logo ODS 2
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("2", x + bw/2 - TILE_W * 0.5, y + bh - 18);
+  
+  ctx.textAlign = "left";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.16) + "px Arial";
+  ctx.fillText("ZERO", x + bw/2 - TILE_W * 0.2, y + bh - 30);
+  ctx.fillText("HUNGER", x + bw/2 - TILE_W * 0.2, y + bh - 18);
+  ctx.restore();
+}
+
+function drawSpaceJumpersLower(x, y, bw, bh, b) {
+  // Rectángulo TOP-RIGHT
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 5);
+  ctx.lineTo(x + bw + 10, y - 5);
+  ctx.lineTo(x + bw + 10, y + bh + 10);
+  ctx.fill();
+
+  ctx.fillStyle = "#d3a029"; 
+  ctx.beginPath();
+  ctx.moveTo(x, y); // TL
+  ctx.lineTo(x + bw, y); // TR
+  ctx.lineTo(x + bw, y + bh); // BR
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#fad473"; 
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+// ===== KINTSUGI — ODS 3 (Verde) =====
+function drawKintsugiUpper(x, y, bw, bh, b) {
+  // Rectángulo BOTTOM-LEFT
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 10);
+  ctx.lineTo(x - 5, y + bh + 5);
+  ctx.lineTo(x + bw + 10, y + bh + 5);
+  ctx.fill();
+
+  ctx.fillStyle = "#4c9f38"; 
+  ctx.beginPath();
+  ctx.moveTo(x, y); // TL
+  ctx.lineTo(x, y + bh); // BL
+  ctx.lineTo(x + bw, y + bh); // BR
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#80de6a"; 
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, y + bh);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+function drawKintsugiLower(x, y, bw, bh, b) {
+  // Isósceles DOWN
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 5);
+  ctx.lineTo(x + bw + 5, y - 5);
+  ctx.lineTo(x + bw/2, y + bh + 10);
+  ctx.fill();
+
+  ctx.fillStyle = "#4c9f38"; // ODS 3 Verde
+  ctx.beginPath();
+  ctx.moveTo(x, y); // Top Left
+  ctx.lineTo(x + bw, y); // Top Right
+  ctx.lineTo(x + bw/2, y + bh); // Bottom tip
+  ctx.closePath();
+  ctx.fill();
+
+  // Relieve oscuro derecho
+  ctx.fillStyle = "#3b7a2b";
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y);
+  ctx.lineTo(x + bw, y);
+  ctx.lineTo(x + bw/2, y + bh); 
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#80de6a"; 
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 15, y + 10);
+  ctx.lineTo(x + bw - 15, y + 10);
+  ctx.lineTo(x + bw/2, y + bh - 15);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Logo ODS 3
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("3", x + bw/2 - TILE_W * 0.5, y + bh/2 + 10);
+  
+  ctx.textAlign = "left";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.14) + "px Arial";
+  ctx.fillText("GOOD", x + bw/2 - TILE_W * 0.2, y + bh/2 - 2);
+  ctx.fillText("HEALTH", x + bw/2 - TILE_W * 0.2, y + bh/2 + 10);
+  ctx.restore();
 }
 
 // ===== ROTONDA (Glorieta circular transitable) =====
@@ -2348,6 +2601,63 @@ function drawTree(x, y) {
     ctx.beginPath(); ctx.ellipse(x+TILE_W/2-4, y+TILE_H-45, 10, 22, 0, 0, Math.PI*2); ctx.fillStyle = "#43a047"; ctx.fill();
   }
 }
+
+// ===== CULTIVOS / ZANJAS (MAPA 9) =====
+function drawCrops(x, y, bw, bh, b) {
+  // Base de tierra agrícola
+  ctx.fillStyle = "#5d4037"; // Marrón tierra oscura
+  ctx.fillRect(x, y, bw, bh);
+  
+  // Sombra interior sutil
+  ctx.strokeStyle = "#4e342e";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(x, y, bw, bh);
+
+  // Dibujar zanjas paralelas (líneas VERTICALES)
+  const colCount = Math.floor(bw / (TILE_W * 1.5)) || 1; // Dinámico según el ancho
+  const colWidth = bw / colCount;
+  
+  for (let i = 0; i < colCount; i++) {
+    const colX = x + (i * colWidth) + (colWidth / 2);
+    
+    // Sombras de la zanja (tierra húmeda/profunda)
+    ctx.fillStyle = "#3e2723";
+    ctx.fillRect(colX - 8, y + 10, 16, bh - 20);
+    
+    // Arbustos verdes encima (simulando enredaderas / maracuyá)
+    ctx.fillStyle = "#43a047"; // Verde vibrante
+    ctx.beginPath();
+    for (let j = 20; j < bh - 20; j += 18) {
+      ctx.arc(colX, y + j, 14, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    
+    // Brillos de las hojas
+    ctx.fillStyle = "#66bb6a";
+    ctx.beginPath();
+    for (let j = 20; j < bh - 20; j += 18) {
+      ctx.arc(colX - 4, y + j - 4, 6, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+}
+
+// ===== CASA DE LA BIODIVERSIDAD (MAPA 17) =====
+function drawBiodiversityHouse(x, y, bw, bh, b) {
+  // Sombra base suave
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fillRect(x + 5, y + 5, bw, bh);
+
+  // Techo blanco plano (vista top-down)
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(x, y, bw, bh);
+
+  // Borde sutil para definir el perímetro
+  ctx.strokeStyle = "#e0e0e0";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, bw, bh);
+}
+
 function drawFlower(x, y, seed) {
   const colors = ["#e91e63","#ff5722","#ffc107","#9c27b0","#2196f3"];
   const fx = x + TILE_W/2 + (seed%5 - 2)*5;
@@ -2537,6 +2847,36 @@ function handleTap(sx, sy) {
   const path = findPath(gameState.charCol, gameState.charRow, tile.col, tile.row, map);
   if (path && path.length > 0) gameState.charPath = path;
 }
+let currentJoystickDir = null;
+let joystickManager = null;
+
+function initJoystick() {
+  if (joystickManager) return;
+  const zone = document.getElementById('joystick-zone');
+  if (!zone) return;
+  
+  joystickManager = nipplejs.create({
+    zone: zone,
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#ffffff',
+    size: 100
+  });
+
+  joystickManager.on('move', function (evt, data) {
+    // data.direction will be defined if distance > some threshold
+    if (data.direction) {
+      currentJoystickDir = data.direction.angle; // 'up', 'down', 'left', 'right'
+    } else {
+      currentJoystickDir = null;
+    }
+  });
+
+  joystickManager.on('end', function (evt, data) {
+    currentJoystickDir = null;
+  });
+}
+
 function dpadMove(dir) {
   let dc = 0, dr = 0;
   if (dir==='up') dr=-1; else if (dir==='down') dr=1;
@@ -2906,7 +3246,7 @@ function maestroResetChar() {
   gameState.clase = null;
   gameState.gameReady = false;
   document.getElementById('game-hud').classList.add('hidden');
-  document.getElementById('mobile-dpad').classList.add('hidden');
+  document.getElementById('joystick-zone').classList.add('hidden');
   showCarousel();
 }
 

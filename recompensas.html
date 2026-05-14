@@ -194,17 +194,13 @@
     </div>
   </div>
 
-  <!-- MOBILE D-PAD -->
-  <div id="mobile-dpad" class="hidden">
-    <button class="dpad-btn dpad-up" ontouchstart="dpadMove('up')" onmousedown="dpadMove('up')"><span class="material-symbols-rounded">expand_less</span></button>
-    <button class="dpad-btn dpad-left" ontouchstart="dpadMove('left')" onmousedown="dpadMove('left')"><span class="material-symbols-rounded">chevron_left</span></button>
-    <button class="dpad-btn dpad-right" ontouchstart="dpadMove('right')" onmousedown="dpadMove('right')"><span class="material-symbols-rounded">chevron_right</span></button>
-    <button class="dpad-btn dpad-down" ontouchstart="dpadMove('down')" onmousedown="dpadMove('down')"><span class="material-symbols-rounded">expand_more</span></button>
-  </div>
+  <!-- FLOATING JOYSTICK ZONE -->
+  <div id="joystick-zone" class="hidden"></div>
 
   <!-- Firebase + Scripts -->
   <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
   <script src="zones.js"></script>
   <script src="recompensas.js"></script>
 </body>

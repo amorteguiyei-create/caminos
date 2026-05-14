@@ -196,16 +196,9 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 #worldmap-canvas { width:100%; max-width:400px; border-radius:12px; border:1px solid rgba(255,255,255,.1); background:#111; }
 .worldmap-hint { color:rgba(255,255,255,.4); font-size:11px; margin-top:8px; }
 
-/* ===== D-PAD (Mobile) ===== */
-#mobile-dpad { position:fixed; bottom:70px; right:16px; z-index:200; width:130px; height:130px; touch-action:none; -ms-touch-action:none; }
-#mobile-dpad.hidden { display:none; }
-.dpad-btn { position:absolute; width:42px; height:42px; border-radius:12px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:22px; -webkit-tap-highlight-color:transparent; transition:.15s; }
-.dpad-btn:active { background:rgba(255,255,255,.25); transform:scale(.92); }
-.dpad-btn .material-symbols-rounded { font-size:24px; }
-.dpad-up { top:0; left:50%; transform:translateX(-50%); }
-.dpad-down { bottom:0; left:50%; transform:translateX(-50%); }
-.dpad-left { left:0; top:50%; transform:translateY(-50%); }
-.dpad-right { right:0; top:50%; transform:translateY(-50%); }
+/* ===== JOYSTICK (Mobile/Desktop) ===== */
+#joystick-zone { position:fixed; bottom:20px; left:20px; z-index:200; width:150px; height:150px; touch-action:none; -ms-touch-action:none; }
+#joystick-zone.hidden { display:none; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
@@ -215,8 +208,7 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
   .hud-action-btn { padding:8px 10px; }
   .game-panel { padding:16px; }
   .panel-head h2 { font-size:14px; }
-  #mobile-dpad { width:120px; height:120px; bottom:60px; right:10px; }
-  .dpad-btn { width:38px; height:38px; }
+  #joystick-zone { width:120px; height:120px; bottom:10px; left:10px; }
 
   /* Character selection mobile */
   .select-title { font-size:13px; top:8px; letter-spacing:2px; }
@@ -245,8 +237,7 @@ body { background:#0a0a12; overflow:hidden; font-family:'Nunito',sans-serif; tou
 }
 
 @media (min-width: 768px) {
-  #mobile-dpad { width:150px; height:150px; }
-  .dpad-btn { width:48px; height:48px; }
+  #joystick-zone { width:180px; height:180px; bottom:30px; left:30px; }
   .game-panel { max-width:480px; left:50%; transform:translateX(-50%); border-radius:20px; bottom:20px; }
 }
 

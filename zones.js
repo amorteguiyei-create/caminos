@@ -45,18 +45,20 @@ const ZONE_INFO = [
   {n:"Reserva Hídrica Este",t:"df",i:"🌲",bg:"#0d2808",b:[]},
 
   // Row 1: zones 9-16
-  {n:"Huerta Escolar Norte",t:"gd",i:"🌱",bg:"#2d4a1e",
-    b:[{c:3,r:3,w:4,h:3,n:"Huerta Escolar",i:"🌱",d:"Zona de proyectos y huerta escolar. Pacas digestoras y cultivos.",s:0}]},
+  {n:"Bosque del Río Norte",t:"lf",nopaths:true,i:"🌳",bg:"#1a3d12",b:[]},
   {n:"Bosque Central",t:"lf",i:"🌳",bg:"#1a3d12",b:[]},
-  {n:"Elementary — Space Jumpers & Kintsugi",t:"cb",i:"🚀",bg:"#2d4a1e",
-    b:[{c:1,r:3,w:3,h:3,n:"Salón Space Jumpers",i:"🚀",d:"Salones del proyecto Space Jumpers.",s:0},
-       {c:8,r:3,w:3,h:3,n:"Salón Kintsugi",i:"🏺",d:"Salones del proyecto Kintsugi. El arte de reparar.",s:0}]},
+  {n:"Elementary - Space Jumpers & Kintsugi",t:"cb",i:"🚀",bg:"#2d4a1e",
+    b:[{c:0,r:1,w:6,h:5,n:"",i:"🚀",shape:"sj_upper",d:"",s:0},
+       {c:0,r:8,w:4,h:4,n:"Salones Space Jumpers",i:"🚀",shape:"sj_lower",d:"Proyecto Space Jumpers. ODS 2: Hambre Cero.",s:0, ix:4, iy:8},
+       {c:10,r:2,w:4,h:4,n:"Salones Kintsugi",i:"🏺",shape:"kin_upper",d:"Proyecto Kintsugi. ODS 3: Salud y Bienestar.",s:0, ix:9, iy:5},
+       {c:8,r:8,w:6,h:5,n:"",i:"🏺",shape:"kin_lower",d:"",s:0}]},
   {n:"Pasillo Central & Atlantis",t:"cb",i:"🌊",bg:"#1e2a4a",
-    b:[{c:4,r:4,w:4,h:3,n:"Salones Atlantis",i:"🌊",d:"Proyecto Atlantis. ODS 6: Agua Limpia y Saneamiento.",s:2}]},
+    b:[{c:5,r:1,w:7,h:4,n:"",i:"🌊",shape:"atlantis_upper",d:"",s:0},
+       {c:5,r:7,w:4,h:4,n:"Salones Atlantis",i:"🌊",shape:"atlantis_lower",d:"Proyecto Atlantis. ODS 6: Agua Limpia y Saneamiento.",s:2, ix:9, iy:9}]},
   {n:"Rotonda & District 12",t:"lf",i:"⚖️",bg:"#2d4a1e",portal:true,
     b:[{c:0,r:1,w:5,h:4,n:"",i:"⚖️",shape:"district12_upper",d:"",s:0},
        {c:0,r:8,w:5,h:6,n:"Salones District 12",i:"⚖️",shape:"district12_lower",d:"Proyecto District 12. ODS 10: Reducción de Desigualdades.",s:3, ix:5, iy:10},
-       {c:4,r:4,w:6,h:6,n:"",i:"⭕",shape:"rotonda",d:"Rotonda que conecta Junior, Administración y High School.",s:0, hideMarker:true}]},
+       {c:4,r:4,w:6,h:6,n:"",i:"⭕",shape:"rotonda",d:"Rotonda que conecta Junior, Administración y High School.",s:0, ix:7, iy:7, hideMarker:true}]},
   {n:"High School Paula R. de Pardo",t:"lf",nopaths:true,bg:"#2d4a1e",
     b:[{c:5,r:0,w:5,h:7,n:"Hall de ciclo High",i:"🏫",shape:"hs_bridge",d:"Primer piso del edificio de high Paula Rodriguez de Pardo",s:0, ix:7, iy:4, hideMarker:true},
        {c:5,r:7,w:5,h:4,n:"",i:"🏫",shape:"hs_wing",d:"",s:0},
@@ -65,8 +67,12 @@ const ZONE_INFO = [
   {n:"Reserva Hídrica Este 2",t:"df",i:"🌲",bg:"#0d2808",b:[]},
 
   // Row 2: zones 17-24
-  {n:"Huerta Escolar Sur",t:"gd",i:"🌿",bg:"#2d4a1e",
-    b:[{c:3,r:3,w:4,h:3,n:"Zona de Proyectos",i:"🌿",d:"Proyectos productivos y huerta escolar sur.",s:0}]},
+  {n:"Huerta Escolar Sur",t:"gd",i:"🌱",bg:"#2d4a1e",
+    b:[
+       {c:5,r:2,w:3,h:5,n:"Huerta 1",i:"🌱",shape:"crops",d:"Primera zona de cultivos.",s:0, ix:4, iy:4},
+       {c:10,r:2,w:3,h:5,n:"Huerta 2",i:"🌱",shape:"crops",d:"Segunda zona de cultivos.",s:0, ix:9, iy:4},
+       {c:4,r:9,w:3,h:5,n:"Casa de la Biodiversidad",i:"🏡",shape:"biodiversity_house",d:"Espacio dedicado a la biodiversidad.",s:0, ix:7, iy:11}
+    ]},
   {n:"Plaza del Reloj",t:"pz",i:"🕐",bg:"#1a3d12",
     b:[{c:5,r:5,w:3,h:2,n:"Plaza del Reloj",i:"🕐",d:"Plaza emblemática con el reloj del colegio. Un punto de encuentro histórico.",s:0}]},
   {n:"Deportes & Restaurante",t:"cb",i:"🍽️",bg:"#2d4a1e",
@@ -129,8 +135,7 @@ const ZONE_INFO = [
   {n:"Parqueadero General",t:"pk",i:"🅿️",bg:"#3a3a3a",
     b:[{c:1,r:2,w:10,h:6,n:"Parqueadero General",i:"🅿️",d:"Parqueadero general del campus.",s:0}]},
   {n:"Parqueadero & Portal",t:"pk",i:"🅿️",bg:"#3a3a3a",portal:true,
-    b:[{c:1,r:2,w:8,h:4,n:"Parqueadero",i:"🅿️",d:"Zona de parqueo.",s:0},
-       {c:10,r:6,w:2,h:2,n:"Portal de Viaje",i:"🌀",d:"Portal mágico. Te conecta con otros portales del campus.",s:0}]},
+    b:[{c:1,r:2,w:8,h:4,n:"Parqueadero",i:"🅿️",d:"Zona de parqueo.",s:0}]},
   {n:"Portería — Entrada Principal",t:"pk",i:"🚪",bg:"#3a3a3e",
     b:[{c:3,r:2,w:6,h:3,n:"Portería",i:"🚪",d:"Entrada principal de la Ciudad Educadora Espíritu Santo.",s:0}]},
 ];
@@ -290,6 +295,69 @@ function generateZoneMap(zoneNum) {
       cells.forEach(pos => {
         if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
       });
+    } else if (b.shape === "sj_upper") {
+      // Isósceles UP (r:1-5, c:1-6). Base en r:5
+      const cells = [
+        [1, 3], [1, 4],
+        [2, 2], [2, 3], [2, 4], [2, 5],
+        [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6],
+        [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6],
+        [5, 1], [5, 2], [5, 3], [5, 4], [5, 5], [5, 6]
+      ];
+      cells.forEach(pos => {
+        if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
+      });
+    } else if (b.shape === "sj_lower") {
+      // Triángulo rectángulo plano arriba, plano DERECHA. (Top-Right right angle)
+      // w:4, h:4 -> r:8-11, c:1-4
+      for (let relR = 0; relR < b.h; relR++) {
+        for (let relC = relR; relC < b.w; relC++) {
+           const nr = b.r + relR;
+           const nc = b.c + relC;
+           if (nr < MAP_H && nc < MAP_W) m[nr][nc] = 3;
+        }
+      }
+    } else if (b.shape === "kin_upper") {
+      // Triángulo rectángulo plano abajo, plano izquierda. (Bottom-Left right angle)
+      // w:4, h:4 -> r:2-5, c:9-12
+      for (let relR = 0; relR < b.h; relR++) {
+        for (let relC = 0; relC <= relR; relC++) {
+           const nr = b.r + relR;
+           const nc = b.c + relC;
+           if (nr < MAP_H && nc < MAP_W) m[nr][nc] = 3;
+        }
+      }
+    } else if (b.shape === "kin_lower") {
+      // Isósceles DOWN (r:8-12, c:8-13). Base en r:8
+      const cells = [
+        [8, 8], [8, 9], [8, 10], [8, 11], [8, 12], [8, 13],
+        [9, 8], [9, 9], [9, 10], [9, 11], [9, 12], [9, 13],
+        [10, 9], [10, 10], [10, 11], [10, 12],
+        [11, 10], [11, 11]
+      ];
+      cells.forEach(pos => {
+        if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
+      });
+    } else if (b.shape === "atlantis_upper") {
+      // Triángulo ODS 6 apuntando hacia arriba, punta en c=8, base en r=4, c=5..11
+      const cells = [
+        [1, 8], // Punta
+        [2, 7], [2, 8], [2, 9],
+        [3, 6], [3, 7], [3, 8], [3, 9], [3, 10],
+        [4, 5], [4, 6], [4, 7], [4, 8], [4, 9], [4, 10], [4, 11] // Base
+      ];
+      cells.forEach(pos => {
+        if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
+      });
+    } else if (b.shape === "atlantis_lower") {
+      // Triángulo rectángulo plano arriba, plano a la derecha (como Neverland 2)
+      for (let relR = 0; relR < b.h; relR++) {
+        for (let relC = relR; relC < b.w; relC++) {
+           const nr = b.r + relR;
+           const nc = b.c + relC;
+           if (nr < MAP_H && nc < MAP_W) m[nr][nc] = 3;
+        }
+      }
     } else if (b.shape === "rotonda") {
       // La rotonda NO bloquea el movimiento — tiles permanecen walkable
       // Solo se dibuja visualmente encima
@@ -363,6 +431,43 @@ function generateZoneMap(zoneNum) {
   }
 
   // Manual Map Overrides (Limpieza específica)
+  if (zoneNum === 9) { // Mapa 9: Bosque del Río
+    // Caño de agua a la izquierda
+    for (let r = 0; r < MAP_H; r++) {
+      m[r][0] = 7; 
+      m[r][1] = 7;
+    }
+    // Barrera de árboles en col 2 y 3 para que no pasen al río
+    for (let r = 0; r < MAP_H; r++) {
+      m[r][2] = 4;
+      if (r % 2 === 0) m[r][3] = 4;
+    }
+    
+    for (let r = 10; r < MAP_H; r++) {
+      for (let c = 6; c <= 8; c++) m[r][c] = 1; 
+    }
+  }
+
+  if (zoneNum === 17) { // Mapa 17: Huerta Escolar Sur
+    // Limpiar zona de árboles
+    for (let r = 0; r < MAP_H; r++) {
+      for (let c = 0; c < MAP_W; c++) {
+        if (m[r][c] === 4 || m[r][c] === 5 || m[r][c] === 6) m[r][c] = 1;
+      }
+    }
+    // Caño de agua a la izquierda (continuación del río)
+    for (let r = 0; r < MAP_H; r++) {
+      m[r][0] = 7; 
+      m[r][1] = 7;
+    }
+    // Barrera de árboles en col 2 y 3 para que no pasen al río
+    for (let r = 0; r < MAP_H; r++) {
+      m[r][2] = 4;
+      if (r % 2 === 0) m[r][3] = 4;
+    }
+    m[12][8] = 1; // Forzar limpieza explícita de arbusto
+  }
+
   if (zoneNum === 1) { // Mapa 1: Bosque PTAP
     // Liberar árbol limitante al lado este
     m[8][11] = 1;
@@ -377,6 +482,23 @@ function generateZoneMap(zoneNum) {
   if (zoneNum === 16 || zoneNum === 24) {
     // Liberar camino atascado por un árbol
     m[12][6] = 1;
+  }
+  
+  if (zoneNum === 11) { // Mapa 11: Space Jumpers & Kintsugi
+    // Limpiar TODO el mapa de flores y árboles
+    for (let r = 0; r < MAP_H; r++) {
+      for (let c = 0; c < MAP_W; c++) {
+        if (m[r][c] === 6 || m[r][c] === 5 || m[r][c] === 4) m[r][c] = 1;
+      }
+    }
+    // Camino horizontal (r:6, 7)
+    for (let c = 0; c < MAP_W; c++) {
+      m[6][c] = 2; m[7][c] = 2;
+    }
+    // Camino vertical entre edificios (c:7, 8)
+    for (let r = 0; r < MAP_H; r++) {
+      m[r][7] = 2; m[r][8] = 2;
+    }
   }
   
   if (zoneNum === 13) { // Mapa 13: Rotonda & District 12
