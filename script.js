@@ -287,6 +287,17 @@ function iniciarApp(isLogged) {
     // Inicializar Jhoncito inmediatamente para aprovechar el gesto del clic como permiso de audio
     initJhoncito();
     
+    // BOTÓN DE ACCESO A RECOMPENSAS (CIUDAD DE LOS NIÑOS) — visible para TODOS los perfiles
+    var btnRecompensas = document.createElement('button');
+    btnRecompensas.id = "btn-recompensas-estudiante";
+    btnRecompensas.innerHTML = '<span class="material-symbols-rounded" style="font-size: 28px;">castle</span>';
+    btnRecompensas.style.cssText = "position: fixed; bottom: 255px; left: 30px; z-index: 9991; background: linear-gradient(135deg,#1a237e,#0d47a1); color: #ffd54f; width: 60px; height: 60px; border-radius: 30px; border: 2px solid #ffd54f55; box-shadow: 0 4px 15px rgba(13,71,161,0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;";
+    btnRecompensas.title = "Explorar La Ciudad de los Niños";
+    btnRecompensas.onclick = abrirCiudadNinos;
+    btnRecompensas.onmouseover = () => btnRecompensas.style.transform = 'scale(1.1)';
+    btnRecompensas.onmouseout = () => btnRecompensas.style.transform = 'scale(1)';
+    document.body.appendChild(btnRecompensas);
+
     var faseStr = currentUser.fase || "sin ruta";
     var faseParts = faseStr.split('-'); 
     if (faseParts.length === 2) {
@@ -342,16 +353,7 @@ function iniciarApp(isLogged) {
           btnLogout.onmouseout = () => btnLogout.style.background = '#fff';
           document.body.appendChild(btnLogout);
 
-          // BOTÓN DE ACCESO A RECOMPENSAS (CIUDAD DE LOS NIÑOS)
-          var btnRecompensas = document.createElement('button');
-          btnRecompensas.id = "btn-recompensas-estudiante";
-          btnRecompensas.innerHTML = '<span class="material-symbols-rounded" style="font-size: 28px;">castle</span>';
-          btnRecompensas.style.cssText = "position: fixed; bottom: 255px; left: 30px; z-index: 9991; background: linear-gradient(135deg,#1a237e,#0d47a1); color: #ffd54f; width: 60px; height: 60px; border-radius: 30px; border: 2px solid #ffd54f55; box-shadow: 0 4px 15px rgba(13,71,161,0.5); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;";
-          btnRecompensas.title = "Explorar La Ciudad de los Niños";
-          btnRecompensas.onclick = abrirCiudadNinos;
-          btnRecompensas.onmouseover = () => btnRecompensas.style.transform = 'scale(1.1)';
-          btnRecompensas.onmouseout = () => btnRecompensas.style.transform = 'scale(1)';
-          document.body.appendChild(btnRecompensas);
+          // (Botón de recompensas ya se agrega arriba para TODOS los perfiles)
 
           var globalOrder = ['colibri', 'abeja', 'halcon', 'mariposa', 'albatros'];
           var currentUnitIndex = globalOrder.indexOf(faseParts[0]);
@@ -932,7 +934,7 @@ function enviarMensajeJhoncito() {
 }
 
 // ==== LLM INTEGRATION ====
-const GEMINI_API_KEY = "AIzaSyD49-ug3TXPLYaKoj312nGrEfEf0TvXwBk"; 
+const GEMINI_API_KEY = "AIzaSyCbTlNjk5Q96eatOPgtqcTgoGF-CYt8Hk4"; 
 
 const REGLAS_JHONCITO = `Eres “Jhoncito”, un asistente virtual de ciudadanía (Jhon Ramos) de la Ciudad Educadora Espíritu Santo (CEES). Representas a un líder de ciudadanía: cercano, reflexivo, justo y formativo. Tu propósito es orientar a los ciudadanos (estudiantes) en sus situaciones de convivencia, ayudándoles a comprender, mejorar y actuar con criterio.
 
@@ -1020,8 +1022,12 @@ async function responderJhoncito(msg) {
        
        let systemPrompt = REGLAS_JHONCITO + "\n\nEl estudiante dice: " + msg;
        
+       // MANUAL_CONVIVENCIA es un objeto con propiedad .value — usar .value y truncar para no exceder límites
        if (typeof MANUAL_CONVIVENCIA !== 'undefined') {
-           systemPrompt += "\n\nAquí tienes el Manual de Convivencia oficial de la institución para basar cualquier regla o respuesta si te están preguntando sobre ello:\n" + MANUAL_CONVIVENCIA;
+           const manualText = (typeof MANUAL_CONVIVENCIA === 'string') ? MANUAL_CONVIVENCIA : (MANUAL_CONVIVENCIA.value || JSON.stringify(MANUAL_CONVIVENCIA));
+           // Limitar a ~8000 caracteres para no exceder el contexto de la API
+           const manualTruncado = manualText.substring(0, 8000);
+           systemPrompt += "\n\nAquí tienes un resumen del Manual de Convivencia oficial:\n" + manualTruncado;
        }
        
        const response = await fetch(API_URL, {
@@ -1035,7 +1041,20 @@ async function responderJhoncito(msg) {
        const data = await response.json();
        
        if(!response.ok) {
-           throw new Error("HTTP " + response.status + " - " + JSON.stringify(data));
+           // Mensaje más claro según el tipo de error
+           let errorMsg = "(Error en conexión IA)";
+           if (response.status === 403) {
+               errorMsg = "⚠️ La clave de IA necesita renovarse. Respondo en modo estándar.";
+               console.error("API Key inválida o bloqueada:", data.error?.message);
+           } else if (response.status === 429) {
+               errorMsg = "⏳ Demasiadas consultas. Respondo en modo estándar.";
+           } else {
+               console.error("Error API Gemini:", response.status, data);
+           }
+           if(typingDiv) typingDiv.remove();
+           agregarMensajeChat('Jhoncito', errorMsg);
+           fallbackJhoncito(msg);
+           return;
        }
        
        if(data.candidates && data.candidates[0].content.parts.length > 0) {
@@ -1090,12 +1109,13 @@ async function responderJhoncito(msg) {
        }
      } catch(e) {
        console.error("Error conectando con Gemini:", e);
-       agregarMensajeChat('Jhoncito', "(Error en conexión IA, me usaré en modo estándar).");
-       // Fallback a lógico local
+       if(typingDiv) typingDiv.remove();
+       // No mostrar error técnico al estudiante, solo usar fallback silenciosamente
      }
   }
   
   // Respaldo lógico local sin API (Keywords Semánticas)
+  if(typingDiv) typingDiv.remove();
   fallbackJhoncito(msg);
 }
 
@@ -1118,7 +1138,8 @@ function fallbackJhoncito(msg) {
   }
   
   agregarMensajeChat('Jhoncito', respuesta);
-  hablarJhoncito(respuesta);
+  // Privacidad: NO hablar en voz alta después del saludo inicial
+  // Las respuestas del chat son solo texto para mantener confidencialidad
 }
 
 function toggleJhoncito() {

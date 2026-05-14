@@ -17,20 +17,30 @@ const ZONE_INFO = [
   null, // index 0 unused
   // Row 0: zones 1-8
   {n:"Bosque PTAP",t:"df",i:"🌳",bg:"#1a3d12",
-    b:[{c:4,r:4,w:3,h:2,n:"Planta PTAP",i:"💧",d:"Planta de Tratamiento de Agua Potable. De aquí sale el agua limpia del colegio.",s:0}]},
+    b:[{c:4,r:4,w:3,h:2,n:"Planta PTAP",i:"💧",d:"Aqui se potabiliza el agua extraida del pozo para toda la Ciudad Educadora Espiritu Santo.",s:0, ix:6, iy:6}]},
   {n:"Elementary — Heroes",t:"lf",i:"🦸",bg:"#2d4a1e",
-    b:[{c:4,r:3,w:4,h:3,n:"Salón Heroes",i:"🦸",d:"Salones de grado 4to — Heroes. Donde se forman los héroes del mañana.",s:0}]},
+    b:[{c:10,r:3,w:4,h:6,n:"Heroes",i:"🦸",shape:"heroes_triangle",d:"La historia de los Héroes demuestra que cada persona, con sus talentos únicos, puede marcar la diferencia y contribuir a un futuro más sostenible y compasivo.",s:0, ix:9, iy:6}]},
   {n:"Neverland",t:"cb",i:"✨",bg:"#2d4a1e",
-    b:[{c:3,r:3,w:5,h:3,n:"Salones Neverland",i:"✨",d:"Salones del proyecto Neverland. ODS 12: Producción y Consumo Responsable.",s:0}]},
-  {n:"Pandora & Distopya",t:"cb",i:"🦋",bg:"#1e2a4a",
-    b:[{c:1,r:3,w:3,h:3,n:"Salones Pandora",i:"🦋",d:"Proyecto Pandora. ODS 15: Vida de Ecosistemas Terrestres.",s:0},
-       {c:8,r:3,w:3,h:3,n:"Salones Distopya",i:"🔮",d:"Proyecto Distopya. Visiones de un futuro por construir.",s:0}]},
-  {n:"Bosque & High School",t:"lf",i:"🏫",bg:"#1e3a1e",
-    b:[{c:8,r:5,w:4,h:3,n:"High School P.R. de Pardo",i:"🏫",d:"Edificio Paula Rodríguez de Pardo — Bachillerato.",s:0},
-       {c:1,r:8,w:3,h:2,n:"Oficinas Administrativas",i:"🏢",d:"Oficinas administrativas del colegio.",s:0}]},
-  {n:"High School & Voleibol",t:"cb",i:"🏐",bg:"#2d4a1e",
-    b:[{c:2,r:2,w:5,h:3,n:"High School P.R. de Pardo",i:"🏫",d:"Continuación del edificio de Bachillerato.",s:0},
-       {c:8,r:6,w:4,h:3,n:"Cancha de Voleibol",i:"🏐",d:"Cancha de voleibol en césped.",s:8}]},
+    b:[
+      {c:0,r:1,w:7,h:4,n:"Neverland",i:"✨",shape:"neverland_triangle",d:"Que la magia y la armonía perduren para siempre en cada rincón del universo.",s:0, ix:3, iy:5},
+      {c:0,r:7,w:4,h:4,n:"",i:"✨",shape:"neverland_triangle_2",s:0}
+    ]},
+  {n:"Atelier, Pandora & Distopya",t:"cb",i:"🦋",bg:"#1e2a4a",
+    b:[
+       {c:4,r:0,w:7,h:4,n:"Atelier",i:"🎨",shape:"atelier_triangle",d:"Un espacio donde el arte, la innovación y las tradiciones se entrelazan para crear nuevas formas de expresión.",s:0, ix:7, iy:4},
+       {c:0,r:3,w:4,h:7,n:"Pandora",i:"🦋",shape:"pandora_triangle",d:"ODS 15. Que su historia inspire a todos a cuidar nuestro hogar común, la Tierra, y a velar por el bienestar y la libertad de todas las criaturas que la habitan.",s:0, ix:4, iy:6},
+       {c:10,r:3,w:4,h:7,n:"Distopya",i:"🔮",shape:"dystopia_triangle",d:"ODS 11. En este nuevo hogar, encontraron un remanso de paz, donde podían vivir juntos en armonía. Ecovita se convirtió en un símbolo de esperanza y resiliencia, un lugar donde la humanidad podía florecer y construir un futuro brillante, aprendiendo del pasado pero sin estar atada a él. Así, el héroe de esta historia no fue solo un individuo, sino toda una comunidad, unida en su lucha por un futuro mejor.",s:0, ix:9, iy:6}]},
+  {n:"Oficinas & Distopya",t:"lf",i:"🏢",bg:"#1e3a1e",
+    b:[
+       {c:0,r:0,w:4,h:4,n:"Dystopia Triangle",i:"🔮",shape:"dystopia_triangle_2",d:"ODS 11. Espacio de construcción de un nuevo futuro sostenible.",s:0, ix:1, iy:4},
+       {c:6,r:11,w:3,h:3,n:"Direccion Academica",i:"🏢",d:"El lugar donde construimos la pedagogia de la Ciudad Educadora.",s:0, ix:9, iy:12},
+       {c:11,r:11,w:3,h:3,n:"Rectoria",i:"🏢",d:"Rectoria de la Ciudad Educadora",s:0, ix:10, iy:12}
+    ]},
+  {n:"High School & Voleibol",t:"lf",nopaths:true,i:"🏐",bg:"#2d4a1e",
+    b:[{c:8,r:3,w:5,h:3,n:"Cancha de Voleibol",i:"🏐",shape:"volleyball_court",d:"Cancha de voleibol en césped.",s:8, ix:8, iy:3},
+       {c:1,r:10,w:5,h:4,n:"Edificio High School Paula Rodriguez de Pardo",i:"🏫",shape:"hs_wing",d:"Infraestructura de Bachillerato.",s:0, ix:6, iy:12, hideMarker:true},
+       {c:9,r:10,w:5,h:4,n:"",i:"🏫",shape:"hs_wing",d:"",s:0},
+       {c:5,r:12,w:5,h:2,n:"",i:"🏫",shape:"hs_bridge",d:"",s:0}]},
   {n:"Reserva Hídrica Noreste",t:"df",i:"🌲",bg:"#0f2e0a",b:[]},
   {n:"Reserva Hídrica Este",t:"df",i:"🌲",bg:"#0d2808",b:[]},
 
@@ -46,8 +56,10 @@ const ZONE_INFO = [
   {n:"Rotonda & District 12",t:"pz",i:"⚖️",bg:"#2d4a1e",portal:true,
     b:[{c:1,r:4,w:3,h:3,n:"Salones District 12",i:"⚖️",d:"Proyecto District 12. ODS 10: Reducción de Desigualdades.",s:3},
        {c:6,r:6,w:2,h:2,n:"Rotonda Central",i:"⭕",d:"Rotonda que conecta Junior, Administración y High School.",s:0}]},
-  {n:"High School Paula R. de Pardo",t:"cb",i:"🏫",bg:"#2d4a1e",
-    b:[{c:3,r:2,w:6,h:4,n:"Edificio High School",i:"🏫",d:"Edificio Paula Rodríguez de Pardo — Sede principal de Bachillerato.",s:0}]},
+  {n:"High School Paula R. de Pardo",t:"lf",nopaths:true,bg:"#2d4a1e",
+    b:[{c:5,r:0,w:5,h:7,n:"Hall de ciclo High",i:"🏫",shape:"hs_bridge",d:"Primer piso del edificio de high Paula Rodriguez de Pardo",s:0, ix:7, iy:4, hideMarker:true},
+       {c:5,r:7,w:5,h:4,n:"",i:"🏫",shape:"hs_wing",d:"",s:0},
+       {c:10,r:1,w:4,h:7,n:"Cancha Auxiliar",i:"⚽",shape:"aux_football_court",d:"Cancha auxiliar para fútbol.",s:0, ix:12, iy:4}]},
   {n:"Reserva Hídrica Noreste 2",t:"df",i:"🌲",bg:"#0f2e0a",b:[]},
   {n:"Reserva Hídrica Este 2",t:"df",i:"🌲",bg:"#0d2808",b:[]},
 
@@ -125,13 +137,15 @@ const ZONE_INFO = [
 // ===== ZONE GRID HELPERS =====
 function zoneToGrid(zoneNum) {
   if (zoneNum <= 40) return { row: Math.floor((zoneNum-1)/8), col: (zoneNum-1)%8 };
-  return { row: 5, col: zoneNum - 41 };
+  // Zonas 41-45 se conectan bajo las columnas 3 a 7 (36 a 40)
+  return { row: 5, col: (zoneNum - 41) + 3 };
 }
 
 function gridToZone(row, col) {
-  if (row < 0 || col < 0) return null;
-  if (row < 5 && col < 8) return row * 8 + col + 1;
-  if (row === 5 && col < 5) return 41 + col;
+  if (row < 0 || col < 0 || col >= 8) return null;
+  if (row < 5) return row * 8 + col + 1;
+  // Fila 5 (sexta fila) solo tiene casillas en columnas 3 a 7
+  if (row === 5 && col >= 3 && col <= 7) return 41 + (col - 3);
   return null;
 }
 
@@ -171,20 +185,145 @@ function generateZoneMap(zoneNum) {
   else if (tpl === "pz") fillPlaza(m, rng);
   else if (tpl === "mt") fillMountain(m, rng);
 
-  // Cut exit paths where connections exist
-  if (conns.north) cutExit(m, "north");
-  if (conns.south) cutExit(m, "south");
-  if (conns.east)  cutExit(m, "east");
-  if (conns.west)  cutExit(m, "west");
+  // Zonas de bosque denso (Reserva hídrica): limpiar caminos de hierba secretos
+  if (info.t === "df") {
+    info.nopaths = true; // Forzar que no haya caminos de tierra para que sea virgen
+    const midC = Math.floor(MAP_W / 2);
+    const midR = Math.floor(MAP_H / 2);
+    let curC = midC;
+    for (let r = 0; r < MAP_H; r++) {
+       if (r > 2 && r < MAP_H - 2 && rng() > 0.4) curC += (rng() > 0.5 ? 1 : -1);
+       if (curC < midC - 3) curC = midC - 3;
+       if (curC > midC + 3) curC = midC + 3;
+       if (r <= 1 || r >= MAP_H - 2) curC = midC; 
+       m[r][curC] = 1;
+       if (curC + 1 < MAP_W) m[r][curC + 1] = 1; 
+    }
+    let curR = midR;
+    for (let c = 0; c < MAP_W; c++) {
+       if (c > 2 && c < MAP_W - 2 && rng() > 0.4) curR += (rng() > 0.5 ? 1 : -1);
+       if (curR < midR - 3) curR = midR - 3;
+       if (curR > midR + 3) curR = midR + 3;
+       if (c <= 1 || c >= MAP_W - 2) curR = midR;
+       m[curR][c] = 1;
+       if (curR + 1 < MAP_H) m[curR + 1][c] = 1;
+    }
+  }
 
-  // Connect exits through center
-  connectPaths(m, conns);
+  // Cut exit paths where connections exist
+  if (!info.nopaths) {
+    if (conns.north) cutExit(m, "north");
+    if (conns.south) cutExit(m, "south");
+    if (conns.east)  cutExit(m, "east");
+    if (conns.west)  cutExit(m, "west");
+    // Connect exits through center
+    connectPaths(m, conns);
+  }
 
   // Place buildings
   (info.b || []).forEach(function(b) {
-    for (let r = b.r; r < b.r + b.h && r < MAP_H; r++)
-      for (let c = b.c; c < b.c + b.w && c < MAP_W; c++)
-        m[r][c] = 3;
+    if (b.shape === "heroes_triangle") {
+      // Custom triangular shape pointing left
+      // Bounding box: c:10, r:3, w:4, h:6
+      const cells = [
+        [3, 13],
+        [4, 12], [4, 13],
+        [5, 11], [5, 12], [5, 13],
+        [6, 10], [6, 11], [6, 12], [6, 13], // Punta centrada
+        [7, 11], [7, 12], [7, 13],
+        [8, 12], [8, 13]
+      ];
+      cells.forEach(pos => {
+        if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
+      });
+    } else if (b.shape === "neverland_triangle") {
+      // Triángulo apuntando hacia arriba, base en r=4, c=0..6
+      const cells = [
+        [1, 3], // Punta
+        [2, 2], [2, 3], [2, 4],
+        [3, 1], [3, 2], [3, 3], [3, 4], [3, 5],
+        [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6] // Base
+      ];
+      cells.forEach(pos => {
+        if (pos[0] >= 0 && pos[0] < MAP_H && pos[1] >= 0 && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
+      });
+    } else if (b.shape === "neverland_triangle_2") {
+      // Triángulo rectángulo plano arriba, plano a la derecha. 
+      for (let relR = 0; relR < b.h; relR++) {
+        for (let relC = relR; relC < b.w; relC++) {
+           const nr = b.r + relR;
+           const nc = b.c + relC;
+           if (nr < MAP_H && nc < MAP_W) m[nr][nc] = 3;
+        }
+      }
+    } else if (b.shape === "dystopia_triangle_2") {
+      // Triángulo inferior izquierdo
+      for (let relR = 0; relR < b.h; relR++) {
+        for (let relC = 0; relC <= relR; relC++) {
+           const nr = b.r + relR;
+           const nc = b.c + relC;
+           if (nr < MAP_H && nc < MAP_W) m[nr][nc] = 3;
+        }
+      }
+    } else if (b.shape === "atelier_triangle") {
+      const cells = [
+        [0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9], [0, 10],
+        [1, 5], [1, 6], [1, 7], [1, 8], [1, 9],
+        [2, 6], [2, 7], [2, 8],
+        [3, 7]
+      ];
+      cells.forEach(pos => {
+        if (pos[0] >= 0 && pos[0] < MAP_H && pos[1] >= 0 && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
+      });
+    } else if (b.shape === "volleyball_court") {
+      for (let r = b.r; r < b.r + b.h && r < MAP_H; r++) {
+         for (let c = b.c; c < b.c + b.w && c < MAP_W; c++) {
+            if (m[r][c] !== 1) m[r][c] = 1; 
+         }
+         m[r][b.c + Math.floor(b.w/2)] = 3;
+      }
+    } else if (b.shape === "aux_football_court") {
+      // Limpiar área pero no agregar bloqueos físicos
+      for (let r = b.r; r < b.r + b.h && r < MAP_H; r++) {
+         for (let c = b.c; c < b.c + b.w && c < MAP_W; c++) {
+            if (m[r][c] !== 1) m[r][c] = 1; 
+         }
+      }
+    } else if (b.shape === "hs_bridge") {
+      // Remover árboles de la ruta del puente
+      for (let r = b.r; r < b.r + b.h && r < MAP_H; r++) {
+         for (let c = b.c; c < b.c + b.w && c < MAP_W; c++) {
+            if (m[r][c] === 4) m[r][c] = 1; // 4 es árbol
+         }
+      }
+      // El puente es aéreo, por lo que el jugador puede caminar por debajo sin colisión sólida
+    } else if (b.shape === "pandora_triangle") {
+      const cells = [
+        [3, 0],
+        [4, 0], [4, 1],
+        [5, 0], [5, 1], [5, 2],
+        [6, 0], [6, 1], [6, 2], [6, 3],
+        [7, 0], [7, 1], [7, 2],
+        [8, 0], [8, 1],
+        [9, 0]
+      ];
+      cells.forEach(pos => { if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3; });
+    } else if (b.shape === "dystopia_triangle") {
+      const cells = [
+        [3, 13],
+        [4, 12], [4, 13],
+        [5, 11], [5, 12], [5, 13],
+        [6, 10], [6, 11], [6, 12], [6, 13],
+        [7, 11], [7, 12], [7, 13],
+        [8, 12], [8, 13],
+        [9, 13]
+      ];
+      cells.forEach(pos => { if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3; });
+    } else {
+      for (let r = b.r; r < b.r + b.h && r < MAP_H; r++)
+        for (let c = b.c; c < b.c + b.w && c < MAP_W; c++)
+          m[r][c] = 3;
+    }
   });
 
   // Place portal pad if zone has portals
@@ -193,6 +332,47 @@ function generateZoneMap(zoneNum) {
     m[MAP_H - 3][MAP_W - 4] = 9;
     m[MAP_H - 4][MAP_W - 3] = 9;
     m[MAP_H - 4][MAP_W - 4] = 9;
+  }
+
+  // Manual Map Overrides (Limpieza específica)
+  if (zoneNum === 1) { // Mapa 1: Bosque PTAP
+    // Liberar árbol limitante al lado este
+    m[8][11] = 1;
+  }
+  
+  if (zoneNum === 2) { // Mapa 2: Heroes
+    // Remover árbol en col 12, filas 4 y 5 (índices 0-based: c=11, r=3,4)
+    m[3][11] = 1;
+    m[4][11] = 1;
+  }
+  
+  if (zoneNum === 16 || zoneNum === 24) {
+    // Liberar camino atascado por un árbol
+    m[12][6] = 1;
+  }
+  
+  if (zoneNum === 14) { // Mapa 14: High School Extension
+    // Quitar todos los árboles del lado izquierdo y derecho limitantes
+    for (let r = 0; r < MAP_H; r++) {
+       for (let c = 0; c < 5; c++) {
+          if (m[r][c] === 4) m[r][c] = 1; // 4 es árbol
+       }
+       for (let c = 10; c < MAP_W; c++) {
+          if (m[r][c] === 4) m[r][c] = 1;
+       }
+    }
+
+    // Trazar un camino en diagonal (zigzag suave con conexión horizontal)
+    m[0][4] = 2; m[1][4] = 2; // Fila 1 y 2, Col 5 (index 4)
+    m[1][3] = 2; m[2][3] = 2; // Fila 2 y 3, Col 4 (index 3)
+    m[2][2] = 2; m[3][2] = 2; // Fila 3 y 4, Col 3 (index 2)
+    m[3][1] = 2; m[4][1] = 2; // Fila 4 y 5, Col 2 (index 1)
+    m[4][0] = 2; m[5][0] = 2; // Fila 5 y 6, Col 1 (index 0)
+    
+    // Y un camino recto hacia abajo en la columna 5 desde la fila 7 a la 14
+    for (let r = 6; r < MAP_H; r++) {
+       m[r][4] = 2;
+    }
   }
 
   return m;

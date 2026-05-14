@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Diagnóstico Firebase - Caminos de Convivencia</title>
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 40px; }
+    .card { background: #16213e; padding: 30px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #0f3460; }
+    h1 { color: #e94560; }
+    .status { padding: 15px; border-radius: 8px; margin: 10px 0; font-weight: bold; }
+    .ok { background: #1b4332; color: #95d5b2; border: 1px solid #2d6a4f; }
+    .error { background: #4a1919; color: #ff6b6b; border: 1px solid #8b2525; }
+    .warning { background: #4a3f19; color: #ffd93d; border: 1px solid #8b7225; }
+    .info { background: #192d4a; color: #74b9ff; border: 1px solid #2562a5; }
+    #log { white-space: pre-wrap; font-family: monospace; font-size: 13px; max-height: 400px; overflow-y: auto; background: #0d1117; padding: 15px; border-radius: 8px; border: 1px solid #333; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; }
+    th { color: #e94560; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Diagnóstico del Sistema - Caminos de Convivencia</h1>
+  
+  <div class="card">
+    <h2>1. Conexión a Firebase</h2>
+    <div id="firebase-status" class="status info">⏳ Verificando conexión a Firebase...</div>
+  </div>
+
+  <div class="card">
+    <h2>2. Colección "ciudadano" (Base de Datos)</h2>
+    <div id="db-status" class="status info">⏳ Verificando base de datos...</div>
+    <div id="db-details"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Muestra de Datos (primeros 10 registros)</h2>
+    <div id="sample-data"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Log de Diagnóstico</h2>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logEl.textContent += `[${time}] ${msg}\n`;
+      console.log(msg);
+    }
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDG6gIdKgL0a_C7fAIQ6SCm5qMCcO-0d3w",
+      authDomain: "caminos-de-convivencia.firebaseapp.com",
+      projectId: "caminos-de-convivencia",
+      storageBucket: "caminos-de-convivencia.firebasestorage.app",
+      messagingSenderId: "590366039762",
+      appId: "1:590366039762:web:a1f2c222cf205c4107d70b"
+    };
+
+    log("Inicializando Firebase con projectId: " + firebaseConfig.projectId);
+    
+    try {
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+      
+      document.getElementById('firebase-status').className = 'status ok';
+      document.getElementById('firebase-status').textContent = '✅ Firebase SDK inicializado correctamente (projectId: ' + firebaseConfig.projectId + ')';
+      log("Firebase SDK inicializado correctamente.");
+
+      // Check ciudadano collection
+      log("Consultando colección 'ciudadano'...");
+      
+      db.collection("ciudadano").get().then(snapshot => {
+        const count = snapshot.size;
+        log("Consulta exitosa. Documentos encontrados: " + count);
+        
+        const dbStatus = document.getElementById('db-status');
+        const dbDetails = document.getElementById('db-details');
+        
+        if (count === 0) {
+          dbStatus.className = 'status error';
+          dbStatus.innerHTML = '❌ <strong>LA BASE DE DATOS ESTÁ VACÍA</strong> - No hay ningún documento en la colección "ciudadano"';
+          dbDetails.innerHTML = '<p>Esto confirma que los datos fueron eliminados. Posible causa: se ejecutó el botón "Borrar Todo" en el admin, o alguien borró la colección desde la consola de Firebase.</p>';
+          log("⚠️ BASE DE DATOS VACÍA - No hay documentos en 'ciudadano'");
+        } else {
+          dbStatus.className = 'status ok';
+          dbStatus.innerHTML = '✅ Base de datos <strong>TIENE DATOS</strong> — Total de ciudadanos: <strong>' + count + '</strong>';
+          log("Base de datos tiene " + count + " documentos.");
+          
+          // Show sample
+          let tableHTML = '<table><thead><tr><th>Código</th><th>Nombre</th><th>Curso</th><th>Fase</th><th>Estrellas</th><th>Tiene Contraseña</th></tr></thead><tbody>';
+          let sampleCount = 0;
+          snapshot.forEach(doc => {
+            if (sampleCount >= 10) return;
+            const d = doc.data();
+            tableHTML += `<tr>
+              <td>${doc.id}</td>
+              <td>${d.nombre || 'N/A'}</td>
+              <td>${d.curso || 'N/A'}</td>
+              <td>${d.fase || 'N/A'}</td>
+              <td>${d.estrellas || 0}</td>
+              <td>${d.contraseña ? '✅ Sí' : (d.password ? '✅ Sí (legacy)' : '❌ No')}</td>
+            </tr>`;
+            sampleCount++;
+          });
+          tableHTML += '</tbody></table>';
+          document.getElementById('sample-data').innerHTML = tableHTML;
+          
+          // Stats
+          let withPassword = 0;
+          let withPhase = 0;
+          let withStars = 0;
+          snapshot.forEach(doc => {
+            const d = doc.data();
+            if (d.contraseña || d.password) withPassword++;
+            if (d.fase && d.fase !== 'sin ruta') withPhase++;
+            if (d.estrellas && d.estrellas > 0) withStars++;
+          });
+          
+          dbDetails.innerHTML = `
+            <div class="status info">
+              📊 <strong>Estadísticas:</strong><br>
+              • Total ciudadanos: ${count}<br>
+              • Con contraseña configurada: ${withPassword}<br>
+              • Con ruta/fase activa: ${withPhase}<br>
+              • Con estrellas > 0: ${withStars}
+            </div>
+          `;
+          log("Estadísticas: " + withPassword + " con contraseña, " + withPhase + " con fase activa, " + withStars + " con estrellas.");
+        }
+      }).catch(err => {
+        log("ERROR consultando Firestore: " + err.message);
+        log("Código de error: " + err.code);
+        document.getElementById('db-status').className = 'status error';
+        document.getElementById('db-status').textContent = '❌ Error al consultar: ' + err.message;
+        
+        if (err.code === 'permission-denied') {
+          document.getElementById('db-details').innerHTML = '<div class="status warning">⚠️ Las reglas de seguridad de Firestore están bloqueando el acceso. Esto puede explicar por qué no se pueden leer los datos.</div>';
+        }
+      });
+
+    } catch (e) {
+      log("ERROR CRÍTICO inicializando Firebase: " + e.message);
+      document.getElementById('firebase-status').className = 'status error';
+      document.getElementById('firebase-status').textContent = '❌ Error inicializando Firebase: ' + e.message;
+    }
+  </script>
+</body>
+</html>

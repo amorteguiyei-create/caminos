@@ -16,11 +16,16 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // ===== CONSTANTS =====
-const TILE_W = 64;
-const TILE_H = 32;
-const CHAR_SPEED = 4;
+const BASE_TILE_W = 60;
+const BASE_TILE_H = 60;
+let TILE_W = 60;
+let TILE_H = 60;
+const CHAR_SPEED = 5;
 const SPAWN_ZONE = 45;
 const IS_MAESTRO = new URLSearchParams(window.location.search).get('maestro') === '1';
+
+// ===== CHAT MODERATION =====
+const BAD_WORDS = ['pendejo', 'estupido', 'idiota', 'maricon', 'hijo de puta', 'malparido', 'gonorrea', 'perra', 'pirobo', 'carechimba', 'hpta', 'puta', 'mierda', 'culiao', 'perra', 'zorra', 'maldito', 'bastardo', 'hp', 'gonone', 'chimba', 'guevon', 'weon'];
 
 // ===== CLASSES (Rich Role Data) =====
 const CLASSES = [
@@ -28,7 +33,7 @@ const CLASSES = [
     subtitle:"Constructor sostenible de la ciudad",
     desc:"Transforma el entorno mediante acciones responsables que cuidan y restauran el planeta.",
     hat:"helmet",matIcon:"construction",
-    bg:"assets/roles/eco_maker_bg.png",charImg:"assets/roles/eco_maker_char.png",
+    bg:"assets/roles/eco_maker_bg.png",
     skills:[
       {icon:"recycling",name:"Reciclaje",desc:"Gestiona residuos y los convierte en recursos"},
       {icon:"park",name:"Reforestación",desc:"Recupera zonas naturales del campus"},
@@ -140,9 +145,19 @@ const CLASSES = [
       {icon:"spa",name:"Armonía",desc:"Restaura la paz en la ciudad"}
     ],
     impact:"Restaura la paz, resuelve conflictos y demuestra que el diálogo transforma la convivencia.",
-    btnText:"Solo por Voto Popular"
+    btnText:"Solo por Voto Popular",
+    bg:"assets/roles/peace_counselor_bg.png"
   }
 ];
+
+// Update other BG paths
+CLASSES[1].bg = "assets/roles/eco_trader_bg.png";
+CLASSES[2].bg = "assets/roles/message_crafter_bg.png";
+CLASSES[3].bg = "assets/roles/ecofit_bg.png";
+CLASSES[4].bg = "assets/roles/smart_citizen_bg.png";
+CLASSES[5].bg = "assets/roles/dream_maker_bg.png";
+CLASSES[6].bg = "assets/roles/global_citizen_bg.png";
+CLASSES[7].bg = "assets/roles/civic_minded_bg.png";
 
 // ===== TILE COLORS =====
 const TILE_COLORS = {
@@ -158,10 +173,7 @@ const TILE_COLORS = {
   9: {top:"#7c4dff",left:"#651fff",right:"#6200ea"}
 };
 
-// ===== COLOR PALETTES =====
-const SHIRT_COLORS = ["#4CAF50", "#2196F3", "#F44336", "#FF9800", "#9C27B0", "#00BCD4", "#607D8B", "#FFEB3B"];
-const PANTS_COLORS = ["#37474F", "#1A237E", "#b71c1c", "#3E2723", "#1B5E20", "#263238", "#4E342E", "#212121"];
-const SHOES_COLORS = ["#212121", "#3E2723", "#4E342E", "#BDBDBD", "#795548", "#111111"];
+// ===== COLOR PALETTES ALREADY IN zones.js =====
 
 // ===== GAME STATE =====
 let gameState = {
@@ -174,8 +186,17 @@ let gameState = {
   charMoveProgress: 0, charPrevCol: 7, charPrevRow: 10,
   charDirection: "s", gameReady: false,
   charColors: {shirt:"#4CAF50",pants:"#37474F",shoes:"#212121"},
-  carouselIndex: 0
+  carouselIndex: 0,
+  lastMessage: "",
+  messageTime: 0
 };
+
+let otherPlayers = {}; // Real-time sync
+let syncUnsubscribe = null;
+
+// ===== SESSION DEDUP: cada pestaña genera un ID único =====
+const SESSION_ID = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+const INACTIVE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos de inactividad = jugador fantasma
 
 let canvas, ctx;
 let camera = {x:0,y:0,targetX:0,targetY:0};
@@ -221,9 +242,44 @@ async function initGame() {
       gameState.clase = d.clase || null;
       gameState.nivel = d.nivel || 1;
       gameState.xp = d.xp || 0;
-      gameState.currentZone = d.zona_actual || SPAWN_ZONE;
+      
+      // Validación robusta de zona (asegura que sea número y esté en rango 1-45)
+      let savedZone = parseInt(d.zona_actual);
+      if (isNaN(savedZone) || savedZone < 1 || savedZone > 45) {
+        gameState.currentZone = SPAWN_ZONE;
+      } else {
+        gameState.currentZone = savedZone;
+      }
+
       gameState.charCol = d.charCol || 7;
       gameState.charRow = d.charRow || 10;
+      
+      // Auto-corrección si el jugador carga la partida encima de una pared (ej: por edición de mapas)
+      const m = ZONE_MAPS[gameState.currentZone];
+      function getFreeTile(sc, sr) {
+        if (m && m[sr] !== undefined && m[sr][sc] !== undefined && WALKABLE.indexOf(m[sr][sc]) !== -1) return {c: sc, r: sr};
+        let q = [{c:sc, r:sr}];
+        let vis = {};
+        vis[sc+','+sr] = true;
+        const dirs = [[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,1],[-1,1],[1,-1]];
+        while(q.length > 0) {
+          let cur = q.shift();
+          if (m && m[cur.r] !== undefined && m[cur.r][cur.c] !== undefined && WALKABLE.indexOf(m[cur.r][cur.c]) !== -1) return cur;
+          for(let idx=0; idx<dirs.length; idx++) {
+            let nc = cur.c + dirs[idx][0], nr = cur.r + dirs[idx][1];
+            if(nc>=0 && nc<MAP_W && nr>=0 && nr<MAP_H) {
+              let key = nc+','+nr;
+              if(!vis[key]) { vis[key] = true; q.push({c:nc, r:nr}); }
+            }
+          }
+        }
+        return {c:sc, r:sr};
+      }
+      
+      const safeSpawn = getFreeTile(gameState.charCol, gameState.charRow);
+      gameState.charCol = safeSpawn.c;
+      gameState.charRow = safeSpawn.r;
+
       if (d.charColors) gameState.charColors = d.charColors;
     }
   } catch(e) { console.error(e); }
@@ -241,6 +297,15 @@ async function initGame() {
 
   canvas.addEventListener('click', handleCanvasClick);
   canvas.addEventListener('touchend', handleCanvasTouchEnd);
+  
+  // Prevenir doble-tap zoom en TODA la página del juego (cubre canvas, D-pad y cualquier zona)
+  document.addEventListener('dblclick', function(e) { e.preventDefault(); });
+  let lastTapTime = 0;
+  document.addEventListener('touchstart', function(e) {
+    const now = Date.now();
+    if (now - lastTapTime < 300) { e.preventDefault(); }
+    lastTapTime = now;
+  }, { passive: false });
 
   // Keyboard support
   document.addEventListener('keydown', function(e) {
@@ -258,6 +323,74 @@ async function initGame() {
   }, 800);
 }
 
+function stopPlayerSync() {
+  if (syncUnsubscribe) syncUnsubscribe();
+  syncUnsubscribe = null;
+}
+
+function initPlayerSync() {
+  stopPlayerSync();
+  otherPlayers = {}; // Limpiar jugadores del mapa anterior
+  syncUnsubscribe = db.collection("ciudadano")
+    .where("zona_actual", "==", gameState.currentZone)
+    .onSnapshot(snap => {
+      snap.docChanges().forEach(change => {
+        const data = change.doc.data();
+        const id = change.doc.id;
+        if (id === gameState.userId) return;
+
+        if (change.type === "removed") {
+          delete otherPlayers[id];
+          return;
+        }
+
+        // --- FILTRO 1: Jugadores inactivos (fantasma) ---
+        // Si el jugador no tiene lastActive o tiene más de 2 min de inactividad, ignorarlo
+        if (data.lastActive) {
+          const lastActiveMs = data.lastActive.toMillis ? data.lastActive.toMillis() : data.lastActive;
+          if (Date.now() - lastActiveMs > INACTIVE_TIMEOUT_MS) {
+            delete otherPlayers[id]; // Remover si ya estaba
+            return;
+          }
+        } else {
+          // No tiene lastActive → jugador viejo, no mostrarlo
+          delete otherPlayers[id];
+          return;
+        }
+
+        // Si el jugador ya existía, interpolar. Si no, teletransportar.
+        const prev = otherPlayers[id] || { col: data.charCol, row: data.charRow };
+        otherPlayers[id] = {
+          id: id,
+          name: data.nombre || "Ciudadano",
+          clase: data.clase || "eco_maker",
+          col: data.charCol,
+          row: data.charRow,
+          prevCol: prev.col,
+          prevRow: prev.row,
+          colors: data.charColors || {shirt:"#4CAF50",pants:"#37474F",shoes:"#212121"},
+          lastMessage: data.lastMessage || "",
+          messageTime: data.messageTime || 0,
+          moveProgress: 0,
+          lastActiveMs: data.lastActive ? (data.lastActive.toMillis ? data.lastActive.toMillis() : data.lastActive) : 0
+        };
+        if (otherPlayers[id].col !== otherPlayers[id].prevCol || otherPlayers[id].row !== otherPlayers[id].prevRow) {
+           otherPlayers[id].isMoving = true;
+        }
+      });
+    });
+}
+
+// Limpieza periódica de jugadores fantasma (cada 15 seg revisa y elimina inactivos)
+setInterval(function() {
+  const now = Date.now();
+  for (let id in otherPlayers) {
+    if (otherPlayers[id].lastActiveMs && (now - otherPlayers[id].lastActiveMs > INACTIVE_TIMEOUT_MS)) {
+      delete otherPlayers[id];
+    }
+  }
+}, 15000);
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = window.innerWidth * dpr;
@@ -265,6 +398,20 @@ function resizeCanvas() {
   canvas.style.width = window.innerWidth + 'px';
   canvas.style.height = window.innerHeight + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  
+  // Ajustar tamaño de tiles para que el mapa completo quepa en la pantalla
+  // Calculamos el tile más pequeño que permita ver todo el mapa
+  const maxTileW = Math.floor(window.innerWidth / MAP_W);
+  const maxTileH = Math.floor(window.innerHeight / MAP_H);
+  const fitTile = Math.min(maxTileW, maxTileH);
+  // En móvil landscape, usar tiles más pequeños; en desktop, usar el base
+  if (window.innerWidth < 1024 || window.innerHeight < 500) {
+    TILE_W = Math.max(30, Math.min(fitTile, BASE_TILE_W));
+    TILE_H = Math.max(30, Math.min(fitTile, BASE_TILE_H));
+  } else {
+    TILE_W = BASE_TILE_W;
+    TILE_H = BASE_TILE_H;
+  }
 }
 
 function createLoaderParticles() {
@@ -476,6 +623,9 @@ function updateCustomPreview() {
 
 async function confirmCustomization() {
   document.getElementById('color-custom').classList.add('hidden');
+  // Debemos ocultar toda la pantalla de selección para revelar el canvas del juego
+  document.getElementById('char-carousel').classList.add('hidden');
+  
   try {
     await db.collection("ciudadano").doc(gameState.userId).collection("juego").doc("perfil").set({
       clase: gameState.clase, nivel: 1, xp: 0,
@@ -488,10 +638,13 @@ async function confirmCustomization() {
 }
 
 // ===== START GAME =====
-function startGame() {
+async function startGame() {
   gameState.gameReady = true;
   document.getElementById('game-hud').classList.remove('hidden');
   document.getElementById('mobile-dpad').classList.remove('hidden');
+  initPlayerSync();
+  await saveProgress(); // PRIMERO registrar SESSION_ID en Firestore
+  initSessionGuard(); // DESPUÉS activar el guard (ya tiene nuestro sessionId)
   updateHUD();
   lastTime = performance.now();
   requestAnimationFrame(gameLoop);
@@ -532,11 +685,29 @@ function update(dt) {
       gameState.charCol = gameState.charTargetCol;
       gameState.charRow = gameState.charTargetRow;
       gameState.charMoving = false;
+      saveProgress(); // Actualizar posición en servidor
       checkBuildingAt(gameState.charCol, gameState.charRow);
       checkEdgeTransition();
       checkPortalPad();
     }
   }
+
+  // Update other players move progress
+  for (let id in otherPlayers) {
+    let p = otherPlayers[id];
+    if (p.isMoving) {
+      p.moveProgress += dt * CHAR_SPEED;
+      if (p.moveProgress >= 1) {
+        p.moveProgress = 1;
+        p.isMoving = false;
+        p.prevCol = p.col;
+        p.prevRow = p.row;
+      }
+    }
+  }
+
+  // Fade out messages
+  if (gameState.messageTime > 0) gameState.messageTime -= dt;
 
   // Camera follow
   const charScreen = tileToScreen(
@@ -545,6 +716,26 @@ function update(dt) {
   );
   camera.targetX = window.innerWidth / 2 - charScreen.x;
   camera.targetY = window.innerHeight / 2 - charScreen.y;
+  
+  // Centrar o clamp cámara según si el mapa cabe en pantalla
+  const mapPixelW = MAP_W * TILE_W;
+  const mapPixelH = MAP_H * TILE_H;
+  
+  // Si el mapa cabe horizontalmente en la pantalla, centrarlo
+  if (mapPixelW <= window.innerWidth) {
+    camera.targetX = (window.innerWidth - mapPixelW) / 2;
+  } else {
+    // Si el mapa es más ancho que la pantalla, clamp para no salirse
+    camera.targetX = Math.max(window.innerWidth - mapPixelW, Math.min(0, camera.targetX));
+  }
+  
+  // Si el mapa cabe verticalmente en la pantalla, centrarlo
+  if (mapPixelH <= window.innerHeight) {
+    camera.targetY = (window.innerHeight - mapPixelH) / 2;
+  } else {
+    camera.targetY = Math.max(window.innerHeight - mapPixelH, Math.min(0, camera.targetY));
+  }
+  
   camera.x += (camera.targetX - camera.x) * 0.08;
   camera.y += (camera.targetY - camera.y) * 0.08;
 }
@@ -569,19 +760,51 @@ function doZoneTransition(targetZone, fromDir) {
   gameState.gameReady = false;
   gameState.charPath = [];
   gameState.charMoving = false;
+  stopPlayerSync();
 
   setTimeout(function() {
     gameState.currentZone = targetZone;
-    if (fromDir === 'north') { gameState.charRow = MAP_H - 2; gameState.charCol = Math.floor(MAP_W/2); }
-    else if (fromDir === 'south') { gameState.charRow = 1; gameState.charCol = Math.floor(MAP_W/2); }
-    else if (fromDir === 'east') { gameState.charCol = 1; gameState.charRow = Math.floor(MAP_H/2); }
-    else if (fromDir === 'west') { gameState.charCol = MAP_W - 2; gameState.charRow = Math.floor(MAP_H/2); }
+    let tryCol = Math.floor(MAP_W/2);
+    let tryRow = Math.floor(MAP_H/2);
+    
+    if (fromDir === 'north') { tryRow = MAP_H - 2; }
+    else if (fromDir === 'south') { tryRow = 1; }
+    else if (fromDir === 'east') { tryCol = 1; }
+    else if (fromDir === 'west') { tryCol = MAP_W - 2; }
+    
+    // Auto-corrección de casilla (Buscar la casilla libre más cercana si spawn está bloqueado)
+    const m = ZONE_MAPS[targetZone];
+    function getFreeTile(sc, sr) {
+      if (m && m[sr] !== undefined && m[sr][sc] !== undefined && WALKABLE.indexOf(m[sr][sc]) !== -1) return {c: sc, r: sr};
+      let q = [{c:sc, r:sr}];
+      let vis = {};
+      vis[sc+','+sr] = true;
+      const dirs = [[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,1],[-1,1],[1,-1]];
+      while(q.length > 0) {
+        let cur = q.shift();
+        if (m && m[cur.r] !== undefined && m[cur.r][cur.c] !== undefined && WALKABLE.indexOf(m[cur.r][cur.c]) !== -1) return cur;
+        for(let idx=0; idx<dirs.length; idx++) {
+          let nc = cur.c + dirs[idx][0], nr = cur.r + dirs[idx][1];
+          if(nc>=0 && nc<MAP_W && nr>=0 && nr<MAP_H) {
+            let key = nc+','+nr;
+            if(!vis[key]) { vis[key] = true; q.push({c:nc, r:nr}); }
+          }
+        }
+      }
+      return {c:sc, r:sr};
+    }
+    
+    const safeSpawn = getFreeTile(tryCol, tryRow);
+    gameState.charCol = safeSpawn.c;
+    gameState.charRow = safeSpawn.r;
+
     gameState.charTargetCol = gameState.charCol;
     gameState.charTargetRow = gameState.charRow;
     gameState.charPrevCol = gameState.charCol;
     gameState.charPrevRow = gameState.charRow;
     updateHUD();
     saveProgress();
+    initPlayerSync();
     gameState.gameReady = true;
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -635,145 +858,1389 @@ function render() {
 
   const objects = [];
 
+  // Agregar siempre todos los edificios primero, sin requerir que su colisión sea tile===3
+  if (zone.b) {
+    for (let i = 0; i < zone.b.length; i++) {
+        const b = zone.b[i];
+        let d = (b.r + b.h * 0.7) * 100 + b.c;
+        if (b.shape === "volleyball_court" || b.shape === "aux_football_court") d = 0; // Render behind characters
+        if (b.shape === "hs_bridge") d = (b.r + b.h + 5) * 100 + b.c + 1000; // Render above characters
+        objects.push({type: "building", b: b, depth: d});
+    }
+  }
+
   for (let row = 0; row < MAP_H; row++) {
     for (let col = 0; col < MAP_W; col++) {
       const tile = map[row][col];
       if (tile === 0) continue;
       const pos = tileToScreen(col, row);
-      if (tile === 4) {
-        drawDiamond(pos.x, pos.y, TILE_COLORS[1]);
-        objects.push({type:"tree",x:pos.x,y:pos.y,depth:row+col});
+      if (tile === 3) {
+        // No dibujar cesped bajo los edificios compactos
+
+      } else if (tile === 4) {
+        drawSquare(pos.x, pos.y, TILE_COLORS[1]);
+        objects.push({type:"tree",x:pos.x,y:pos.y,depth:row*100+col});
       } else if (tile === 5) {
-        drawDiamond(pos.x, pos.y, TILE_COLORS[5]);
+        drawSquare(pos.x, pos.y, TILE_COLORS[5]);
         drawFountain(pos.x, pos.y);
       } else if (tile === 6) {
-        drawDiamond(pos.x, pos.y, TILE_COLORS[1]);
+        drawSquare(pos.x, pos.y, TILE_COLORS[1]);
         drawFlower(pos.x, pos.y, col+row);
       } else if (tile === 7) {
         drawWater(pos.x, pos.y);
       } else if (tile === 9) {
-        drawDiamond(pos.x, pos.y, TILE_COLORS[9]);
+        drawSquare(pos.x, pos.y, TILE_COLORS[9]);
         drawPortalEffect(pos.x, pos.y);
       } else {
         const colors = TILE_COLORS[tile];
-        if (colors) drawDiamond(pos.x, pos.y, colors);
+        if (colors) drawSquare(pos.x, pos.y, colors);
       }
     }
   }
 
-  // Character
+  // Other Players
+  for (let id in otherPlayers) {
+    let p = otherPlayers[id];
+    const pCol = lerp(p.prevCol, p.col, p.moveProgress);
+    const pRow = lerp(p.prevRow, p.row, p.moveProgress);
+    const pPos = tileToScreen(pCol, pRow);
+    objects.push({type:"other",x:pPos.x,y:pPos.y,depth:pRow*100+pCol, player:p});
+  }
+
+  // Local Character
   const cCol = lerp(gameState.charPrevCol, gameState.charTargetCol, gameState.charMoving ? gameState.charMoveProgress : 1);
   const cRow = lerp(gameState.charPrevRow, gameState.charTargetRow, gameState.charMoving ? gameState.charMoveProgress : 1);
   const charPos = tileToScreen(cCol, cRow);
-  objects.push({type:"char",x:charPos.x,y:charPos.y,depth:cRow+cCol});
+  objects.push({type:"char",x:charPos.x,y:charPos.y,depth:cRow*100+cCol});
 
   objects.sort(function(a,b){ return a.depth - b.depth; });
   objects.forEach(function(obj) {
-    if (obj.type === "tree") drawTree(obj.x, obj.y);
-    else if (obj.type === "char") drawCharacter(obj.x, obj.y);
+    if (obj.type === "building") drawBuilding2D(obj.b);
+    else if (obj.type === "tree") drawTree(obj.x, obj.y);
+    else if (obj.type === "char") {
+       drawCharacter(obj.x, obj.y, {name: gameState.userName, colors: gameState.charColors, clase: gameState.clase, msg: gameState.lastMessage, msgTime: gameState.messageTime});
+    } else if (obj.type === "other") {
+       drawCharacter(obj.x, obj.y, {name: obj.player.name, colors: obj.player.colors, clase: obj.player.clase, msg: obj.player.lastMessage, msgTime: obj.player.messageTime});
+    }
   });
 
-  // Building labels
+  // Building labels and Interaction points
   (zone.b || []).forEach(function(b) {
+    // Si el edificio tiene un punto exacto de interacción y no está oculto
+    if (b.ix !== undefined && b.iy !== undefined && !b.hideMarker) {
+      const p = tileToScreen(b.ix, b.iy);
+      drawInteractionMarker(p.x + TILE_W/2, p.y + TILE_H/2);
+    }
     const bx = b.c + b.w/2, by = b.r;
     const pos = tileToScreen(bx, by);
-    drawBuildingLabel(pos.x, pos.y - 20, b.i, b.n, b.s, gameState.stars >= b.s);
+    if (b.n) drawBuildingLabel(pos.x, pos.y - 20, b.i, b.n, b.s, gameState.stars >= b.s);
   });
 
   ctx.restore();
 }
 
+function drawInteractionMarker(x, y) {
+  // Círculo pequeño rojo que palpita para indicar punto de interacción
+  const pulse = 4 + Math.sin(Date.now()*0.008)*2;
+  ctx.beginPath();
+  ctx.arc(x, y, pulse + 2, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(229, 57, 53, 0.4)";
+  ctx.fill();
+  
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "#e53935"; // Rojo intenso
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
 // ===== ISOMETRIC MATH =====
 function tileToScreen(col, row) {
-  return { x: (col - row) * (TILE_W / 2), y: (col + row) * (TILE_H / 2) };
+  return { x: col * TILE_W, y: row * TILE_H };
 }
 function screenToTile(sx, sy) {
   const x = sx - camera.x, y = sy - camera.y;
-  const col = (x / (TILE_W/2) + y / (TILE_H/2)) / 2;
-  const row = (y / (TILE_H/2) - x / (TILE_W/2)) / 2;
-  return { col: Math.round(col), row: Math.round(row) };
+  return { col: Math.floor(x / TILE_W), row: Math.floor(y / TILE_H) };
 }
 function lerp(a, b, t) { return a + (b-a) * Math.min(1, Math.max(0, t)); }
 
 // ===== DRAWING =====
-function drawDiamond(x, y, colors) {
-  const hw = TILE_W/2, hh = TILE_H/2;
-  ctx.beginPath(); ctx.moveTo(x,y-hh); ctx.lineTo(x+hw,y); ctx.lineTo(x,y+hh); ctx.lineTo(x-hw,y); ctx.closePath();
-  ctx.fillStyle = colors.top; ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,0.08)"; ctx.lineWidth = 0.5; ctx.stroke();
+function drawSquare(x, y, colors) {
+  ctx.fillStyle = colors.top;
+  ctx.fillRect(x, y, TILE_W, TILE_H);
+  ctx.strokeStyle = "rgba(0,0,0,0.1)";
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(x, y, TILE_W, TILE_H);
+}
+
+// ===== 2D BUILDING SYSTEM =====
+// Cache para saber si ya dibujamos un edificio en este frame
+// Legacy building dispatch removed because buildings are now natively iterated over in render()
+
+function drawBuilding2D(b) {
+  const pos = tileToScreen(b.c, b.r);
+  const bw = b.w * TILE_W;
+  const bh = b.h * TILE_H;
+  const x = pos.x;
+  const y = pos.y;
+
+  // Seleccionar estilo según el icono/tipo del edificio
+  // Primero evaluar forma (shape) personalizada
+  if (b.shape === "heroes_triangle") drawHeroesBuilding(x, y, bw, bh, b);
+  else if (b.shape === "neverland_triangle") drawNeverlandBuilding(x, y, bw, bh, b);
+  else if (b.shape === "neverland_triangle_2") drawNeverlandBuilding2(x, y, bw, bh, b);
+  else if (b.shape === "atelier_triangle") drawAtelierBuilding(x, y, bw, bh, b);
+  else if (b.shape === "pandora_triangle") drawPandoraBuilding(x, y, bw, bh, b);
+  else if (b.shape === "dystopia_triangle") drawDystopiaBuilding(x, y, bw, bh, b);
+  else if (b.shape === "dystopia_triangle_2") drawDystopiaTriangle2Building(x, y, bw, bh, b);
+  else if (b.shape === "volleyball_court") drawVolleyballCourt(x, y, bw, bh, b);
+  else if (b.shape === "aux_football_court") drawAuxFootballCourt(x, y, bw, bh, b);
+  else if (b.shape === "hs_wing") drawHighSchoolWing(x, y, bw, bh, b);
+  else if (b.shape === "hs_bridge") drawHighSchoolBridge(x, y, bw, bh, b);
+  else {
+    // Si no tiene shape específica, seleccionar estilo según el icono/tipo del edificio
+    const icon = b.i || "🏢";
+    if (icon === "🎭") drawCentroCultural(x, y, bw, bh, b);
+    else if (icon === "🏫") drawSchoolBuilding(x, y, bw, bh, b);
+    else if (icon === "🏛️") drawEdificioCentral(x, y, bw, bh, b);
+    else if (icon === "🍽️" || icon === "☕") drawRestaurante(x, y, bw, bh, b);
+    else if (icon === "💧" || icon === "♻️") drawPlantaAgua(x, y, bw, bh, b);
+    else if (icon === "🏢") drawOficinas(x, y, bw, bh, b);
+    else if (icon === "🚌" || icon === "🅿️") drawParqueadero(x, y, bw, bh, b);
+    else if (icon === "🚪") drawPorteria(x, y, bw, bh, b);
+    else if (icon === "🏔️") drawMontana(x, y, bw, bh, b);
+    else if (icon === "📦" || icon === "🏗️") drawBodega(x, y, bw, bh, b);
+    else if (icon === "🌀") drawPortalBuilding(x, y, bw, bh, b);
+    else drawGenericBuilding(x, y, bw, bh, b);
+  }
+}
+
+// ===== EDIFICIO ATELIER (TRIÁNGULAR HACIA ABAJO) =====
+function drawAtelierBuilding(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y + 10);
+  ctx.lineTo(x + bw + 5, y + 10);
+  ctx.lineTo(x + bw/2, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Verde Teja
+  ctx.fillStyle = "#388e3c";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y);
+  ctx.lineTo(x + bw/2, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mitad sombreada
+  ctx.fillStyle = "#1b5e20";
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y);
+  ctx.lineTo(x + bw, y);
+  ctx.lineTo(x + bw/2, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiras decorativas
+  ctx.strokeStyle = "#81c784";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 15, y + 15);
+  ctx.lineTo(x + bw - 15, y + 15);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x + 10, y + 25);
+  ctx.lineTo(x + bw/2, y + bh - 10);
+  ctx.stroke();
+
+  // Logo / Arte
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.4) + "px Arial";
+  ctx.fillText("🎨", x + bw/2, y + bh/2 - 5);
+  
+  ctx.font = "bold " + Math.floor(TILE_W * 0.16) + "px Arial";
+  ctx.fillText("ATELIER", x + bw/2, y + bh/2 + 12);
+  ctx.fillText("ARTE & INN", x + bw/2, y + bh/2 + 24);
+  ctx.restore();
+}
+
+// ===== EDIFICIO PANDORA (TRIANGULAR ODS 15 HACIA DERECHA) =====
+function drawPandoraBuilding(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 5);
+  ctx.lineTo(x + bw + 10, y + bh/2 + 5);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Verde ODS 15
+  ctx.fillStyle = "#56c02b";
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y + bh/2);
+  ctx.lineTo(x, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mitad sombreada
+  ctx.fillStyle = "#3e8c1f";
+  ctx.beginPath();
+  ctx.moveTo(x, y + bh/2);
+  ctx.lineTo(x + bw, y + bh/2);
+  ctx.lineTo(x, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiras protectoras
+  ctx.strokeStyle = "#a2eb83";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 15, y + 15);
+  ctx.lineTo(x + bw - 15, y + bh/2);
+  ctx.lineTo(x + 15, y + bh - 15);
+  ctx.stroke();
+
+  // Logo ODS 15
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  
+  // "15" Text
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("15", x + TILE_W * 0.4, y + bh/2 + 8);
+  
+  // Text
+  ctx.font = "bold " + Math.floor(TILE_W * 0.16) + "px Arial";
+  ctx.fillText("LIFE", x + TILE_W * 1.5, y + bh/2 - 10);
+  ctx.fillText("ON LAND", x + TILE_W * 1.5, y + bh/2 + 5);
+  
+  // Arbol / pajaros icon simple
+  ctx.beginPath();
+  ctx.arc(x + TILE_W * 2, y + bh/2 + 18, 5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillRect(x + TILE_W * 1.9, y + bh/2 + 18, 4, 10);
+  ctx.restore();
+}
+
+// ===== EDIFICIO DYSTOPIA (TRIANGULAR ODS 11 HACIA IZQUIERDA) =====
+function drawDystopiaBuilding(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x + bw, y - 5);
+  ctx.lineTo(x - 5, y + bh/2 + 5);
+  ctx.lineTo(x + bw, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Naranja ODS 11
+  ctx.fillStyle = "#fd9d24";
+  ctx.beginPath();
+  ctx.moveTo(x + bw, y);
+  ctx.lineTo(x, y + bh/2);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mitad sombreada
+  ctx.fillStyle = "#d17b11";
+  ctx.beginPath();
+  ctx.moveTo(x + bw, y + bh/2);
+  ctx.lineTo(x + 5, y + bh/2);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiras protectoras
+  ctx.strokeStyle = "#ffcca1";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + bw - 15, y + 15);
+  ctx.lineTo(x + 15, y + bh/2);
+  ctx.lineTo(x + bw - 15, y + bh - 15);
+  ctx.stroke();
+
+  // Logo ODS 11
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  
+  // "11" Text
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("11", x + bw - TILE_W * 2.5, y + bh/2 + 8);
+  
+  // Text
+  ctx.textAlign = "left";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.14) + "px Arial";
+  ctx.fillText("SUSTAINABLE", x + bw - TILE_W * 2.3, y + bh/2 - 10);
+  ctx.fillText("CITIES AND", x + bw - TILE_W * 2.3, y + bh/2 + 2);
+  ctx.fillText("COMMUNITIES", x + bw - TILE_W * 2.3, y + bh/2 + 14);
+  
+  // Icono casitas ODS 11
+  ctx.fillRect(x + bw - TILE_W * 1.2, y + bh/2 + 20, 8, 12);
+  ctx.fillRect(x + bw - TILE_W * 1.5, y + bh/2 + 14, 8, 18);
+  ctx.restore();
+}
+
+// ===== CANCHA DE VOLEIBOL =====
+function drawVolleyballCourt(x, y, bw, bh, b) {
+  // Borde verde exterior
+  ctx.fillStyle = "#4caf50";
+  ctx.fillRect(x, y, bw, bh);
+
+  const paddingX = TILE_W * 0.2;
+  const paddingY = TILE_H * 0.2;
+  const innerX = x + paddingX;
+  const innerY = y + paddingY;
+  const innerW = bw - paddingX * 2;
+  const innerH = bh - paddingY * 2;
+
+  // Zona de juego naranja/roja suave
+  ctx.fillStyle = "#e57373"; 
+  ctx.fillRect(innerX, innerY, innerW, innerH);
+
+  // Líneas blancas y malla
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(innerX, innerY, innerW, innerH);
+
+  const midX = x + bw / 2;
+  // Malla central (línea)
+  ctx.beginPath();
+  ctx.moveTo(midX, innerY);
+  ctx.lineTo(midX, innerY + innerH);
+  ctx.stroke();
+  
+  // Líneas de ataque (1/3 de cada lado)
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX - innerW * 0.16, innerY);
+  ctx.lineTo(midX - innerW * 0.16, innerY + innerH);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(midX + innerW * 0.16, innerY);
+  ctx.lineTo(midX + innerW * 0.16, innerY + innerH);
+  ctx.stroke();
+
+  // Postes de la malla
+  ctx.fillStyle = "#424242";
+  ctx.fillRect(midX - 2, innerY - 6, 4, 10);
+  ctx.fillRect(midX - 2, innerY + innerH - 4, 4, 10);
+}
+
+// ===== ALAS DE HIGH SCHOOL (ROCA/CEMENTO) =====
+function drawHighSchoolWing(x, y, bw, bh, b) {
+  // Sombra proyectada
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.fillRect(x + 5, y + 8, bw, bh);
+
+  // Muro frontal
+  ctx.fillStyle = "#555555";
+  ctx.fillRect(x, y + bh * 0.2, bw, bh * 0.8);
+
+  // Techo sólido sin movimiento (color gris roca)
+  ctx.fillStyle = "#8a8a8a";
+  ctx.fillRect(x, y, bw, bh);
+  
+  // Agregar un patrón de roca pero de forma ESTÁTICA y sutil
+  ctx.fillStyle = "#636363";
+  // Usamos una cuadrícula fija para pintar puntitos rocosos
+  const divX = bw / (TILE_W * 0.5);
+  const divY = bh / (TILE_H * 0.5);
+  const sX = bw / divX;
+  const sY = bh / divY;
+  for (let r=0; r<divY; r++) {
+    for (let c=0; c<divX; c++) {
+      if ((r + c) % 3 === 0) {
+        ctx.fillRect(x + c * sX + 2, y + r * sY + 2, 4, 4);
+      } else if ((r + c) % 5 === 0) {
+        ctx.fillStyle = "#aaaaaa";
+        ctx.fillRect(x + c * sX + 1, y + r * sY + 5, 2, 2);
+        ctx.fillStyle = "#636363"; // Reset
+      }
+    }
+  }
+}
+
+// ===== SUPER ESTRUCTURA (MALLA ROJA SÓLIDA) =====
+function drawHighSchoolBridge(x, y, bw, bh, b) {
+  // Dibujamos un bloque rojo sólido directamente. 
+  // La profundidad (z-index) está configurada muy alta, así que el jugador
+  // pasará naturalmente por debajo del cuadro pintado aquí.
+  
+  ctx.fillStyle = "#b71c1c"; // Rojo oscuro sólido
+  ctx.fillRect(x, y, bw, bh);
+  
+  // Patrón perforado estático y sutil (malla)
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  const rows = 8;
+  const cols = Math.floor(bw / (TILE_W * 0.3));
+  const spacX = bw / cols;
+  const spacY = bh / rows;
+  
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const offsetX = (r % 2 === 0) ? spacX * 0.5 : 0;
+      ctx.beginPath();
+      ctx.arc(x + c * spacX + offsetX + spacX * 0.2, y + r * spacY + spacY * 0.5, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Pequeño marco oscuro en los bordes derecho e izquierdo (columnas soporte visuales)
+  ctx.fillStyle = "#2c2c2c";
+  ctx.fillRect(x, y, TILE_W * 0.3, bh);
+  ctx.fillRect(x + bw - TILE_W * 0.3, y, TILE_W * 0.3, bh);
+}
+
+// ===== EDIFICIO DYSTOPIA (TRIANGULO TIPO 2 ODS 11) =====
+function drawDystopiaTriangle2Building(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 5);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.lineTo(x + bw + 10, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Naranja ODS 11
+  ctx.fillStyle = "#fd9d24";
+  ctx.beginPath();
+  ctx.moveTo(x, y); // Top left
+  ctx.lineTo(x, y + bh); // Bottom left
+  ctx.lineTo(x + bw, y + bh); // Bottom right
+  ctx.closePath();
+  ctx.fill();
+
+  // Color secundario (Tiras oscuras simulando ventanas/estructura del ODS 11)
+  ctx.fillStyle = "#d17b11";
+  ctx.beginPath();
+  ctx.moveTo(x, y + bh * 0.3);
+  ctx.lineTo(x + bw * 0.5, y + bh * 0.8);
+  ctx.lineTo(x, y + bh * 0.8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Borde arquitectónico para darle volumen
+  ctx.strokeStyle = "#ffcca1";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + 2, y + 2);
+  ctx.lineTo(x + 2, y + bh - 2);
+  ctx.lineTo(x + bw - 2, y + bh - 2);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+// ===== EDIFICIO NEVERLAND 2 (TRIÁNGULO RECTÁNGULO ODS 12) =====
+function drawNeverlandBuilding2(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y + 10);
+  ctx.lineTo(x + bw + 10, y + 10);
+  ctx.lineTo(x + bw + 10, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Mostaza ODS 12
+  ctx.fillStyle = "#bf8b2e"; // Color oro/mostaza
+  ctx.beginPath();
+  ctx.moveTo(x, y); // Top left
+  ctx.lineTo(x + bw, y); // Top right
+  ctx.lineTo(x + bw, y + bh); // Bottom right
+  ctx.closePath();
+  ctx.fill();
+
+  // Borde arquitectónico para darle volumen
+  ctx.strokeStyle = "#e2b868"; // Oro brillante
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + bw, y);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+// ===== EDIFICIO NEVERLAND (TRIANGULAR ODS 12) =====
+function drawNeverlandBuilding(x, y, bw, bh, b) {
+  // Triángulo que apunta hacia arriba
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + 10);
+  ctx.lineTo(x - 5, y + bh + 10);
+  ctx.lineTo(x + bw + 5, y + bh + 10);
+  ctx.fill();
+
+  // Cuerpo principal Mostaza ODS 12
+  ctx.fillStyle = "#bf8b2e"; // Color oro/mostaza
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y); // Punta arriba
+  ctx.lineTo(x, y + bh); // Abajo izq
+  ctx.lineTo(x + bw, y + bh); // Abajo der
+  ctx.closePath();
+  ctx.fill();
+
+  // Techo / Relieve oscuro
+  ctx.fillStyle = "#9c7126"; // Oro oscuro
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y);
+  ctx.lineTo(x + bw/2, y + bh);
+  ctx.lineTo(x + bw, y + bh); // Lado derecho más oscuro para profundidad
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiras decorativas
+  ctx.strokeStyle = "#e2b868"; // Oro brillante
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + 15);
+  ctx.lineTo(x + 15, y + bh - 10);
+  ctx.lineTo(x + bw - 15, y + bh - 10);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Logo ODS 12
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  
+  // Texto "12" a la izquierda
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("12", x + bw/2 - TILE_W * 0.8, y + bh - 18);
+  
+  // Textos ODS 12
+  ctx.textAlign = "left";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.16) + "px Arial";
+  ctx.fillText("RESPONSIBLE", x + bw/2 - TILE_W * 0.6, y + bh - 34);
+  ctx.fillText("CONSUMPTION", x + bw/2 - TILE_W * 0.6, y + bh - 24);
+  ctx.fillText("AND PRODUCTION", x + bw/2 - TILE_W * 0.6, y + bh - 14);
+  
+  // Símbolo infinito abstracto ODS 12
+  const ix = x + bw/2 + TILE_W * 1.5;
+  const iy = y + bh - 23;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  // Curvas de infinito simuladas por arcos / bezier
+  ctx.moveTo(ix, iy);
+  ctx.bezierCurveTo(ix - 16, iy - 12, ix - 16, iy + 12, ix, iy);
+  ctx.bezierCurveTo(ix + 16, iy - 12, ix + 16, iy + 12, ix, iy);
+  ctx.stroke();
+  
+  // Flechita final del infinito (abajo al centro apuntando a la derecha)
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(ix - 1, iy + 5);
+  ctx.lineTo(ix + 7, iy + 8);
+  ctx.lineTo(ix - 1, iy + 11);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ===== EDIFICIO HEROES (TRIANGULAR ODS 1) =====
+function drawHeroesBuilding(x, y, bw, bh, b) {
+  // Triángulo que apunta hacia la izquierda
+  
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(x + bw, y + 10); // Arriba derecha
+  ctx.lineTo(x - 5, y + bh/2 + 5); // Punta izquierda
+  ctx.lineTo(x + bw, y + bh + 10); // Abajo derecha
+  ctx.fill();
+
+  // Cuerpo principal Rojo ODS 1
+  ctx.fillStyle = "#e53935"; // Rojo intenso
+  ctx.beginPath();
+  ctx.moveTo(x + bw, y); 
+  ctx.lineTo(x, y + bh / 2); // Punta perfectamente centrada
+  ctx.lineTo(x + bw, y + bh); 
+  ctx.closePath();
+  ctx.fill();
+
+  // Techo / Relieve oscuro
+  ctx.fillStyle = "#c62828"; // Rojo oscuro
+  ctx.beginPath();
+  ctx.moveTo(x + bw, y + bh/2);
+  ctx.lineTo(x + 5, y + bh / 2);
+  ctx.lineTo(x + bw, y + bh);
+  ctx.closePath();
+  ctx.fill();
+
+  // Tiras protectoras o líneas arquitectónicas (borde brillante blanco/rojo claro)
+  ctx.strokeStyle = "#ffcdd2";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x + bw - 15, y + 15);
+  ctx.lineTo(x + 15, y + bh / 2);
+  ctx.lineTo(x + bw - 15, y + bh - 15);
+  ctx.stroke();
+
+  // Logo ODS 1 en el centro del edificio
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  
+  // "1" Text
+  ctx.font = "bold " + Math.floor(TILE_W * 0.7) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("1", x + bw - TILE_W * 2.3, y + bh/2 + 3);
+  
+  // "NO POVERTY" Text apilado
+  ctx.textAlign = "left";
+  ctx.font = "bold " + Math.floor(TILE_W * 0.18) + "px Arial";
+  ctx.fillText("NO", x + bw - TILE_W * 2.1, y + bh/2 - 6);
+  ctx.fillText("POVERTY", x + bw - TILE_W * 2.1, y + bh/2 + 4);
+  
+  // Siluetas de la familia ODS 1 (abstracción geométrica)
+  const tx = x + bw - TILE_W * 1.5;
+  const ty = y + bh/2 + 10;
+  
+  // Línea gruesa que representa las "manos unidas"
+  ctx.fillRect(tx - 10, ty + 12, 36, 1.5);
+  
+  // Dibujar 5 siluetas (Adulto - Niño - Adulto - Adulto - Niño)
+  const sizes = [
+    {x: tx - 5, h: 10, w: 5, y: 14}, // Adulto
+    {x: tx + 3, h: 6, w: 3, y: 16}, // Niño
+    {x: tx + 10, h: 10, w: 5, y: 14, skirt: true}, // Mujer
+    {x: tx + 17, h: 10, w: 5, y: 14, skirt: true}, // Mujer
+    {x: tx + 25, h: 6, w: 3, y: 16} // Niño
+  ];
+  
+  sizes.forEach(p => {
+    // Cabeza
+    ctx.beginPath();
+    ctx.arc(p.x, ty + p.y - p.h - 2, p.w/1.8, 0, Math.PI*2);
+    ctx.fill();
+    // Cuerpo
+    ctx.beginPath();
+    if (p.skirt) {
+      // Falda (triángulo) para silueta femenina en ODS
+      ctx.moveTo(p.x, ty + p.y - p.h + 1); // Cuello
+      ctx.lineTo(p.x - p.w/1.2, ty + p.y); // Pie izq
+      ctx.lineTo(p.x + p.w/1.2, ty + p.y); // Pie der
+      ctx.fill();
+    } else {
+      ctx.fillRect(p.x - p.w/2, ty + p.y - p.h, p.w, p.h);
+    }
+  });
+
+  ctx.restore();
+}
+
+// ===== CENTRO CULTURAL ELÍAS PARDO GARCÍA =====
+function drawCentroCultural(x, y, bw, bh, b) {
+  const cx = x + bw/2;
+  
+  // Sombra del edificio
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.beginPath();
+  ctx.roundRect(x + 6, y + 8, bw, bh - 4, 4);
+  ctx.fill();
+  
+  // Pared principal (crema/beige elegante)
+  const wallGrad = ctx.createLinearGradient(x, y, x, y + bh);
+  wallGrad.addColorStop(0, "#f5e6c8");
+  wallGrad.addColorStop(1, "#d4b896");
+  ctx.fillStyle = wallGrad;
+  ctx.beginPath();
+  ctx.roundRect(x + 2, y + bh * 0.2, bw - 4, bh * 0.8, [0, 0, 4, 4]);
+  ctx.fill();
+  
+  // Techo tipo teatro (rojo oscuro con forma triangular)
+  ctx.fillStyle = "#8b1a1a";
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y + bh * 0.22);
+  ctx.lineTo(cx, y - bh * 0.08);
+  ctx.lineTo(x + bw + 4, y + bh * 0.22);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Detalle del techo — franja dorada
+  ctx.strokeStyle = "#daa520";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x - 2, y + bh * 0.21);
+  ctx.lineTo(x + bw + 2, y + bh * 0.21);
+  ctx.stroke();
+  
+  // Columnas clásicas
+  const numCols = Math.max(4, Math.floor(bw / (TILE_W * 0.8)));
+  const colSpacing = (bw - 20) / (numCols - 1);
+  ctx.fillStyle = "#e8dcc8";
+  for (let i = 0; i < numCols; i++) {
+    const cx2 = x + 10 + i * colSpacing;
+    const colW = Math.max(4, TILE_W * 0.1);
+    // Columna
+    ctx.fillStyle = "#e8dcc8";
+    ctx.fillRect(cx2 - colW/2, y + bh * 0.22, colW, bh * 0.65);
+    // Capitel (parte superior)
+    ctx.fillStyle = "#daa520";
+    ctx.fillRect(cx2 - colW/2 - 2, y + bh * 0.22, colW + 4, 3);
+    // Base
+    ctx.fillRect(cx2 - colW/2 - 1, y + bh * 0.85, colW + 2, 3);
+  }
+  
+  // Entrada central con arco
+  const doorW = bw * 0.22;
+  const doorH = bh * 0.4;
+  const doorX = cx - doorW / 2;
+  const doorY = y + bh - doorH - 4;
+  
+  // Arco de la entrada
+  ctx.fillStyle = "#3e2723";
+  ctx.beginPath();
+  ctx.moveTo(doorX, doorY + doorH);
+  ctx.lineTo(doorX, doorY + doorH * 0.3);
+  ctx.arc(cx, doorY + doorH * 0.3, doorW / 2, Math.PI, 0);
+  ctx.lineTo(doorX + doorW, doorY + doorH);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Interior oscuro del arco
+  ctx.fillStyle = "#1a0e0a";
+  ctx.beginPath();
+  ctx.moveTo(doorX + 3, doorY + doorH);
+  ctx.lineTo(doorX + 3, doorY + doorH * 0.35);
+  ctx.arc(cx, doorY + doorH * 0.35, doorW / 2 - 3, Math.PI, 0);
+  ctx.lineTo(doorX + doorW - 3, doorY + doorH);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Cortinas de teatro (detalles rojos en la puerta)
+  ctx.fillStyle = "rgba(139,26,26,0.6)";
+  ctx.beginPath();
+  ctx.moveTo(doorX + 3, doorY + doorH * 0.35);
+  ctx.quadraticCurveTo(cx - doorW * 0.1, doorY + doorH * 0.5, doorX + 3, doorY + doorH * 0.7);
+  ctx.lineTo(doorX + 3, doorY + doorH * 0.35);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(doorX + doorW - 3, doorY + doorH * 0.35);
+  ctx.quadraticCurveTo(cx + doorW * 0.1, doorY + doorH * 0.5, doorX + doorW - 3, doorY + doorH * 0.7);
+  ctx.lineTo(doorX + doorW - 3, doorY + doorH * 0.35);
+  ctx.fill();
+  
+  // Ventanas laterales (vitrales)
+  const winW = TILE_W * 0.3;
+  const winH = bh * 0.25;
+  const winsLeft = Math.floor((cx - doorW/2 - x - 20) / (winW + 8));
+  const winsRight = winsLeft;
+  
+  for (let i = 0; i < winsLeft; i++) {
+    const wx = x + 12 + i * (winW + 8);
+    drawStainedWindow(wx, y + bh * 0.35, winW, winH);
+  }
+  for (let i = 0; i < winsRight; i++) {
+    const wx = cx + doorW/2 + 8 + i * (winW + 8);
+    drawStainedWindow(wx, y + bh * 0.35, winW, winH);
+  }
+  
+  // Letrero "CENTRO CULTURAL"
+  ctx.font = "bold " + Math.max(8, TILE_W * 0.18) + "px Nunito";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#3e2723";
+  ctx.lineWidth = 2;
+  ctx.strokeText("CENTRO CULTURAL", cx, y + bh * 0.17);
+  ctx.fillText("CENTRO CULTURAL", cx, y + bh * 0.17);
+  
+  // Escalones de la entrada
+  for (let s = 0; s < 3; s++) {
+    ctx.fillStyle = s % 2 === 0 ? "#b0a090" : "#c4b8a0";
+    const sw = doorW + 8 + s * 10;
+    ctx.fillRect(cx - sw/2, y + bh - 4 + s * 3, sw, 3);
+  }
+}
+
+function drawStainedWindow(x, y, w, h) {
+  // Marco
+  ctx.fillStyle = "#5d4037";
+  ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+  // Vitral colores
+  const colors = ["#1565c0", "#e65100", "#2e7d32", "#6a1b9a"];
+  const segH = h / colors.length;
+  for (let i = 0; i < colors.length; i++) {
+    ctx.fillStyle = colors[i] + "88";
+    ctx.fillRect(x, y + i * segH, w, segH);
+  }
+  // Brillo
+  ctx.fillStyle = "rgba(255,255,200,0.15)";
+  ctx.fillRect(x + 1, y + 1, w * 0.4, h - 2);
+  // Cruz del vitral
+  ctx.strokeStyle = "#5d4037";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + w/2, y); ctx.lineTo(x + w/2, y + h);
+  ctx.moveTo(x, y + h/2); ctx.lineTo(x + w, y + h/2);
+  ctx.stroke();
+}
+
+// ===== EDIFICIO ESCOLAR =====
+function drawSchoolBuilding(x, y, bw, bh, b) {
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.beginPath(); ctx.roundRect(x + 4, y + 6, bw, bh - 2, 3); ctx.fill();
+  
+  // Pared principal (ladrillo suave)
+  const wallGrad = ctx.createLinearGradient(x, y, x, y + bh);
+  wallGrad.addColorStop(0, "#e8d5b7");
+  wallGrad.addColorStop(1, "#c4a882");
+  ctx.fillStyle = wallGrad;
+  ctx.beginPath(); ctx.roundRect(x + 2, y + bh * 0.15, bw - 4, bh * 0.85, [0, 0, 3, 3]); ctx.fill();
+  
+  // Techo
+  ctx.fillStyle = "#5d4037";
+  ctx.fillRect(x - 2, y + bh * 0.13, bw + 4, bh * 0.06);
+  ctx.fillStyle = "#4e342e";
+  ctx.fillRect(x, y + bh * 0.08, bw, bh * 0.07);
+  
+  // Ventanas en cuadrícula
+  const cols = Math.max(3, Math.floor(bw / (TILE_W * 0.6)));
+  const rows = Math.max(1, Math.floor(bh / (TILE_H * 1.2)));
+  const winW = TILE_W * 0.28;
+  const winH = TILE_H * 0.3;
+  const spacingX = (bw - 16) / cols;
+  const spacingY = (bh * 0.6) / (rows + 1);
+  
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const wx = x + 12 + c * spacingX;
+      const wy = y + bh * 0.25 + (r + 1) * spacingY - winH/2;
+      ctx.fillStyle = "#81d4fa";
+      ctx.fillRect(wx, wy, winW, winH);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(wx, wy, winW, winH);
+      ctx.beginPath();
+      ctx.moveTo(wx + winW/2, wy); ctx.lineTo(wx + winW/2, wy + winH);
+      ctx.stroke();
+    }
+  }
+  
+  // Puerta principal
+  const doorW = bw * 0.12;
+  const doorH = bh * 0.3;
+  ctx.fillStyle = "#5d4037";
+  ctx.fillRect(x + bw/2 - doorW/2, y + bh - doorH, doorW, doorH);
+  ctx.fillStyle = "#3e2723";
+  ctx.fillRect(x + bw/2 - doorW/2 + 2, y + bh - doorH + 2, doorW - 4, doorH - 2);
+}
+
+// ===== EDIFICIO CENTRAL (Administración) =====
+function drawEdificioCentral(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.beginPath(); ctx.roundRect(x + 4, y + 6, bw, bh - 2, 3); ctx.fill();
+  
+  const wallGrad = ctx.createLinearGradient(x, y, x, y + bh);
+  wallGrad.addColorStop(0, "#eceff1");
+  wallGrad.addColorStop(1, "#b0bec5");
+  ctx.fillStyle = wallGrad;
+  ctx.beginPath(); ctx.roundRect(x + 2, y + bh * 0.12, bw - 4, bh * 0.88, [0, 0, 3, 3]); ctx.fill();
+  
+  // Techo plano con parapeto
+  ctx.fillStyle = "#455a64";
+  ctx.fillRect(x - 2, y + bh * 0.10, bw + 4, bh * 0.05);
+  
+  // Paneles solares en el techo
+  for (let i = 0; i < Math.floor(bw / (TILE_W * 0.5)); i++) {
+    ctx.fillStyle = "#1a237e";
+    ctx.fillRect(x + 8 + i * TILE_W * 0.5, y + bh * 0.02, TILE_W * 0.35, bh * 0.07);
+    ctx.strokeStyle = "#42a5f5";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(x + 8 + i * TILE_W * 0.5, y + bh * 0.02, TILE_W * 0.35, bh * 0.07);
+  }
+  
+  // Ventanas modernas
+  const cols = Math.max(4, Math.floor(bw / (TILE_W * 0.5)));
+  const winW = TILE_W * 0.25;
+  const winH = bh * 0.28;
+  const spacingX = (bw - 12) / cols;
+  for (let c = 0; c < cols; c++) {
+    const wx = x + 8 + c * spacingX;
+    ctx.fillStyle = "#4fc3f7";
+    ctx.fillRect(wx, y + bh * 0.3, winW, winH);
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillRect(wx, y + bh * 0.3, winW * 0.3, winH);
+    ctx.strokeStyle = "#78909c";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(wx, y + bh * 0.3, winW, winH);
+  }
+  
+  // Puerta doble
+  const doorW = bw * 0.14;
+  ctx.fillStyle = "#37474f";
+  ctx.fillRect(x + bw/2 - doorW/2, y + bh * 0.7, doorW, bh * 0.3);
+  ctx.strokeStyle = "#90a4ae";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + bw/2, y + bh * 0.7); ctx.lineTo(x + bw/2, y + bh);
+  ctx.stroke();
+}
+
+// ===== RESTAURANTE / CAFETERÍA =====
+function drawRestaurante(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath(); ctx.roundRect(x + 4, y + 5, bw, bh - 2, 3); ctx.fill();
+  
+  const wallGrad = ctx.createLinearGradient(x, y, x, y + bh);
+  wallGrad.addColorStop(0, "#fff3e0");
+  wallGrad.addColorStop(1, "#ffe0b2");
+  ctx.fillStyle = wallGrad;
+  ctx.beginPath(); ctx.roundRect(x + 2, y + bh * 0.18, bw - 4, bh * 0.82, [0, 0, 3, 3]); ctx.fill();
+  
+  // Techo con toldo
+  ctx.fillStyle = "#e65100";
+  ctx.fillRect(x - 3, y + bh * 0.15, bw + 6, bh * 0.06);
+  // Franjas del toldo
+  const stripes = Math.floor(bw / 10);
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? "#bf360c" : "#ff8f00";
+    ctx.beginPath();
+    ctx.moveTo(x + i * 10, y + bh * 0.21);
+    ctx.lineTo(x + i * 10 + 5, y + bh * 0.28);
+    ctx.lineTo(x + (i + 1) * 10, y + bh * 0.21);
+    ctx.fill();
+  }
+  
+  // Ventana grande tipo vitrina
+  ctx.fillStyle = "#fff9c4";
+  ctx.fillRect(x + 8, y + bh * 0.35, bw - 16, bh * 0.3);
+  ctx.strokeStyle = "#8d6e63";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x + 8, y + bh * 0.35, bw - 16, bh * 0.3);
+  
+  // Puerta
+  ctx.fillStyle = "#5d4037";
+  ctx.fillRect(x + bw/2 - bw * 0.08, y + bh * 0.72, bw * 0.16, bh * 0.28);
+}
+
+// ===== PLANTA DE AGUA =====
+function drawPlantaAgua(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath(); ctx.roundRect(x + 3, y + 4, bw, bh - 2, 3); ctx.fill();
+  
+  ctx.fillStyle = "#78909c";
+  ctx.beginPath(); ctx.roundRect(x + 2, y + bh * 0.2, bw - 4, bh * 0.8, [0, 0, 3, 3]); ctx.fill();
+  
+  // Techo industrial
+  ctx.fillStyle = "#546e7a";
+  ctx.fillRect(x - 2, y + bh * 0.15, bw + 4, bh * 0.08);
+  
+  // Tanques de agua
+  const tanks = Math.max(2, Math.floor(bw / (TILE_W * 0.8)));
+  const tankW = (bw - 16) / tanks * 0.7;
+  for (let i = 0; i < tanks; i++) {
+    const tx = x + 8 + i * ((bw - 16) / tanks);
+    ctx.fillStyle = "#0277bd";
+    ctx.beginPath(); ctx.roundRect(tx, y + bh * 0.3, tankW, bh * 0.5, 6); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillRect(tx + 2, y + bh * 0.32, tankW * 0.3, bh * 0.46);
+    // Indicador de nivel
+    ctx.fillStyle = "#4fc3f7";
+    const level = 0.5 + Math.sin(animTime + i) * 0.2;
+    ctx.fillRect(tx + 3, y + bh * 0.3 + bh * 0.5 * (1 - level), tankW - 6, bh * 0.5 * level - 4);
+  }
+}
+
+// ===== OFICINAS =====
+function drawOficinas(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath(); ctx.roundRect(x + 4, y + 5, bw, bh - 2, 3); ctx.fill();
+  
+  ctx.fillStyle = "#cfd8dc";
+  ctx.beginPath(); ctx.roundRect(x + 2, y + bh * 0.12, bw - 4, bh * 0.88, [0, 0, 3, 3]); ctx.fill();
+  ctx.fillStyle = "#607d8b";
+  ctx.fillRect(x - 2, y + bh * 0.10, bw + 4, bh * 0.05);
+  
+  const cols = Math.max(3, Math.floor(bw / (TILE_W * 0.6)));
+  const winW = TILE_W * 0.22;
+  const winH = bh * 0.22;
+  const sp = (bw - 12) / cols;
+  for (let c = 0; c < cols; c++) {
+    ctx.fillStyle = "#90caf9";
+    ctx.fillRect(x + 8 + c * sp, y + bh * 0.25, winW, winH);
+    ctx.fillRect(x + 8 + c * sp, y + bh * 0.55, winW, winH);
+    ctx.strokeStyle = "#b0bec5";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(x + 8 + c * sp, y + bh * 0.25, winW, winH);
+    ctx.strokeRect(x + 8 + c * sp, y + bh * 0.55, winW, winH);
+  }
+  
+  ctx.fillStyle = "#455a64";
+  ctx.fillRect(x + bw/2 - bw * 0.07, y + bh * 0.75, bw * 0.14, bh * 0.25);
+}
+
+// ===== PARQUEADERO =====
+function drawParqueadero(x, y, bw, bh, b) {
+  // Asfalto
+  ctx.fillStyle = "#424242";
+  ctx.fillRect(x, y, bw, bh);
+  // Líneas de parqueo
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1;
+  const spots = Math.floor(bw / (TILE_W * 0.7));
+  for (let i = 0; i <= spots; i++) {
+    const lx = x + 8 + i * ((bw - 16) / spots);
+    ctx.beginPath();
+    ctx.moveTo(lx, y + bh * 0.3);
+    ctx.lineTo(lx, y + bh * 0.8);
+    ctx.stroke();
+  }
+  // Línea horizontal
+  ctx.beginPath();
+  ctx.moveTo(x + 8, y + bh * 0.3);
+  ctx.lineTo(x + bw - 8, y + bh * 0.3);
+  ctx.stroke();
+}
+
+// ===== PORTERÍA =====
+function drawPorteria(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath(); ctx.roundRect(x + 3, y + 4, bw, bh - 2, 3); ctx.fill();
+  
+  // Caseta
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.roundRect(x + 4, y + bh * 0.25, bw * 0.35, bh * 0.75, 3); ctx.fill();
+  ctx.strokeStyle = "#1565c0";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 4, y + bh * 0.25, bw * 0.35, bh * 0.75);
+  
+  // Barrera
+  ctx.fillStyle = "#f44336";
+  ctx.fillRect(x + bw * 0.4, y + bh * 0.45, bw * 0.55, 4);
+  ctx.fillStyle = "#fff";
+  for (let i = 0; i < 4; i++) {
+    ctx.fillRect(x + bw * 0.4 + i * bw * 0.12, y + bh * 0.45, bw * 0.06, 4);
+  }
+  
+  // Poste de la barrera
+  ctx.fillStyle = "#616161";
+  ctx.fillRect(x + bw * 0.38, y + bh * 0.4, 6, bh * 0.6);
+  
+  // Letrero CEES
+  ctx.font = "bold " + Math.max(7, TILE_W * 0.15) + "px Nunito";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#1565c0";
+  ctx.fillText("CEES", x + bw * 0.2, y + bh * 0.2);
+}
+
+// ===== MONTAÑA =====
+function drawMontana(x, y, bw, bh, b) {
+  const cx = x + bw / 2;
+  // Montaña principal
+  ctx.fillStyle = "#5d4037";
+  ctx.beginPath();
+  ctx.moveTo(x + bw * 0.1, y + bh);
+  ctx.lineTo(cx, y + bh * 0.1);
+  ctx.lineTo(x + bw * 0.9, y + bh);
+  ctx.closePath();
+  ctx.fill();
+  // Nieve en la cima
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(cx - bw * 0.08, y + bh * 0.25);
+  ctx.lineTo(cx, y + bh * 0.1);
+  ctx.lineTo(cx + bw * 0.08, y + bh * 0.25);
+  ctx.closePath();
+  ctx.fill();
+  // Montaña menor
+  ctx.fillStyle = "#795548";
+  ctx.beginPath();
+  ctx.moveTo(x, y + bh);
+  ctx.lineTo(x + bw * 0.3, y + bh * 0.4);
+  ctx.lineTo(x + bw * 0.55, y + bh);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ===== BODEGA =====
+function drawBodega(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.fillRect(x + 3, y + 4, bw, bh - 2);
+  ctx.fillStyle = "#8d6e63";
+  ctx.fillRect(x + 2, y + bh * 0.2, bw - 4, bh * 0.8);
+  // Techo metálico corrugado
+  ctx.fillStyle = "#78909c";
+  ctx.beginPath();
+  ctx.moveTo(x - 2, y + bh * 0.22);
+  ctx.lineTo(x + bw/2, y + bh * 0.05);
+  ctx.lineTo(x + bw + 2, y + bh * 0.22);
+  ctx.closePath();
+  ctx.fill();
+  // Puerta de garage
+  ctx.fillStyle = "#546e7a";
+  ctx.fillRect(x + bw * 0.2, y + bh * 0.4, bw * 0.6, bh * 0.6);
+  for (let i = 0; i < 4; i++) {
+    ctx.strokeStyle = "#455a64";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + bw * 0.2, y + bh * 0.4 + i * bh * 0.15);
+    ctx.lineTo(x + bw * 0.8, y + bh * 0.4 + i * bh * 0.15);
+    ctx.stroke();
+  }
+}
+
+// ===== PORTAL BUILDING =====
+function drawPortalBuilding(x, y, bw, bh, b) {
+  const cx = x + bw/2, cy = y + bh/2;
+  // Plataforma circular
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + bh * 0.15, bw * 0.4, bh * 0.25, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#311b92";
+  ctx.fill();
+  // Anillos del portal
+  const glow = 0.5 + Math.sin(animTime * 3) * 0.3;
+  ctx.strokeStyle = "rgba(124,77,255," + glow + ")";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, bw * 0.3, bh * 0.2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(179,136,255," + glow + ")";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, bw * 0.2, bh * 0.12, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  // Centro brillante
+  ctx.fillStyle = "rgba(200,180,255," + (0.6 + Math.sin(animTime * 4) * 0.3) + ")";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// ===== CANCHA DE FUTBOL AUXILIAR =====
+function drawAuxFootballCourt(x, y, bw, bh, b) {
+  // Grama sintética lisa ligeramente más verde que el fondo
+  ctx.fillStyle = "#388e3c";
+  ctx.fillRect(x, y, bw, bh);
+
+  const mX = TILE_W * 0.2;
+  const mY = TILE_H * 0.2;
+  const innerX = x + mX;
+  const innerY = y + mY;
+  const innerW = bw - mX * 2;
+  const innerH = bh - mY * 2;
+
+  // Líneas de cancha
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(innerX, innerY, innerW, innerH);
+
+  // Línea de medio campo (cancha dispuesta verticalmente)
+  const midY = innerY + innerH / 2;
+  ctx.beginPath();
+  ctx.moveTo(innerX, midY);
+  ctx.lineTo(innerX + innerW, midY);
+  ctx.stroke();
+
+  // Círculo central
+  ctx.beginPath();
+  ctx.arc(innerX + innerW / 2, midY, innerW * 0.25, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Punto central
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(innerX + innerW / 2, midY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Áreas
+  const areaH = innerH * 0.15;
+  const areaW = innerW * 0.5;
+  const areaX = innerX + (innerW - areaW) / 2;
+  ctx.strokeRect(areaX, innerY, areaW, areaH); // Area superior
+  ctx.strokeRect(areaX, innerY + innerH - areaH, areaW, areaH); // Area inferior
+
+  // Arcos principales (Porterías)
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.fillRect(areaX + areaW * 0.1, innerY - 6, areaW * 0.8, 6);
+  ctx.fillRect(areaX + areaW * 0.1, innerY + innerH, areaW * 0.8, 6);
+  
+  // Postes
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(areaX + areaW * 0.1 - 2, innerY - 6, 2, 6);
+  ctx.fillRect(areaX + areaW * 0.9, innerY - 6, 2, 6);
+  ctx.fillRect(areaX + areaW * 0.1 - 2, innerY + innerH, 2, 6);
+  ctx.fillRect(areaX + areaW * 0.9, innerY + innerH, 2, 6);
+}
+
+// ===== EDIFICIO GENÉRICO (fallback) =====
+function drawGenericBuilding(x, y, bw, bh, b) {
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  ctx.beginPath(); ctx.roundRect(x + 3, y + 4, bw, bh - 2, 3); ctx.fill();
+  
+  const wallGrad = ctx.createLinearGradient(x, y, x, y + bh);
+  wallGrad.addColorStop(0, "#e0e0e0");
+  wallGrad.addColorStop(1, "#bdbdbd");
+  ctx.fillStyle = wallGrad;
+  ctx.beginPath(); ctx.roundRect(x + 2, y + bh * 0.15, bw - 4, bh * 0.85, [0, 0, 3, 3]); ctx.fill();
+  
+  ctx.fillStyle = "#757575";
+  ctx.fillRect(x - 1, y + bh * 0.13, bw + 2, bh * 0.04);
+  
+  // Ventanas
+  const cols = Math.max(2, Math.floor(bw / (TILE_W * 0.7)));
+  const winW = TILE_W * 0.25;
+  const winH = bh * 0.22;
+  const sp = (bw - 12) / cols;
+  for (let c = 0; c < cols; c++) {
+    ctx.fillStyle = "#90caf9";
+    ctx.fillRect(x + 8 + c * sp, y + bh * 0.3, winW, winH);
+    ctx.fillRect(x + 8 + c * sp, y + bh * 0.6, winW, winH);
+  }
+  
+  ctx.fillStyle = "#5d4037";
+  ctx.fillRect(x + bw/2 - bw * 0.06, y + bh * 0.75, bw * 0.12, bh * 0.25);
 }
 function drawWater(x, y) {
-  const hw = TILE_W/2, hh = TILE_H/2, wave = Math.sin(animTime*2+x*0.01)*2;
-  ctx.beginPath(); ctx.moveTo(x,y-hh+wave); ctx.lineTo(x+hw,y+wave*0.5); ctx.lineTo(x,y+hh+wave); ctx.lineTo(x-hw,y+wave*0.5); ctx.closePath();
-  ctx.fillStyle = "#1565c0"; ctx.fill();
-  ctx.fillStyle = "rgba(100,200,255,"+(0.15+Math.sin(animTime*3+x*0.05)*0.1)+")"; ctx.fill();
+  const wave = Math.sin(animTime*2+x*0.01)*3;
+  ctx.fillStyle = "#1565c0";
+  ctx.fillRect(x, y+wave, TILE_W, TILE_H);
+  ctx.fillStyle = "rgba(100,200,255,"+(0.15+Math.sin(animTime*3+x*0.05)*0.1)+")";
+  ctx.fillRect(x, y+wave, TILE_W, TILE_H);
 }
 function drawTree(x, y) {
-  ctx.fillStyle = "#5d4037"; ctx.fillRect(x-3, y-30, 6, 18);
-  ctx.beginPath(); ctx.arc(x, y-36, 14, 0, Math.PI*2); ctx.fillStyle = "#2e7d32"; ctx.fill();
-  ctx.beginPath(); ctx.arc(x-6, y-32, 10, 0, Math.PI*2); ctx.fillStyle = "#388e3c"; ctx.fill();
-  ctx.beginPath(); ctx.arc(x+7, y-33, 11, 0, Math.PI*2); ctx.fillStyle = "#43a047"; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x, y+2, 12, 5, 0, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fill();
+  // Generar variaciones según la coordenada estática del árbol
+  const tType = (Math.floor(x * 1.3) + Math.floor(y * 0.7)) % 4; // 0, 1, 2, 3
+  
+  // Sombra base para todos los árboles
+  ctx.beginPath(); ctx.ellipse(x+TILE_W/2, y+TILE_H-5, 18, 6, 0, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fill();
+
+  // Tronco base 
+  ctx.fillStyle = "#5d4037"; ctx.fillRect(x+TILE_W/2-4, y+TILE_H-25, 8, 20);
+
+  if (tType === 0) {
+    // Árbol clásico redondeado
+    ctx.beginPath(); ctx.arc(x+TILE_W/2, y+TILE_H-45, 20, 0, Math.PI*2); ctx.fillStyle = "#2e7d32"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x+TILE_W/2-10, y+TILE_H-35, 15, 0, Math.PI*2); ctx.fillStyle = "#388e3c"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x+TILE_W/2+12, y+TILE_H-38, 16, 0, Math.PI*2); ctx.fillStyle = "#43a047"; ctx.fill();
+  } else if (tType === 1) {
+    // Pino esbelto / Conífera
+    ctx.beginPath(); ctx.moveTo(x+TILE_W/2, y+TILE_H-55); ctx.lineTo(x+TILE_W/2-18, y+TILE_H-20); ctx.lineTo(x+TILE_W/2+18, y+TILE_H-20); ctx.fillStyle = "#1b5e20"; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x+TILE_W/2, y+TILE_H-40); ctx.lineTo(x+TILE_W/2-24, y+TILE_H - 8); ctx.lineTo(x+TILE_W/2+24, y+TILE_H - 8); ctx.fillStyle = "#2e7d32"; ctx.fill();
+  } else if (tType === 2) {
+    // Arbusto gigante / Árbol achaparrado
+    ctx.beginPath(); ctx.arc(x+TILE_W/2, y+TILE_H-30, 22, 0, Math.PI*2); ctx.fillStyle = "#4caf50"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x+TILE_W/2-12, y+TILE_H-22, 18, 0, Math.PI*2); ctx.fillStyle = "#66bb6a"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x+TILE_W/2+15, y+TILE_H-25, 16, 0, Math.PI*2); ctx.fillStyle = "#388e3c"; ctx.fill();
+  } else if (tType === 3) {
+    // Árbol frondoso ovalado
+    ctx.beginPath(); ctx.ellipse(x+TILE_W/2, y+TILE_H-40, 14, 28, 0, 0, Math.PI*2); ctx.fillStyle = "#2e7d32"; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x+TILE_W/2-4, y+TILE_H-45, 10, 22, 0, 0, Math.PI*2); ctx.fillStyle = "#43a047"; ctx.fill();
+  }
 }
 function drawFlower(x, y, seed) {
   const colors = ["#e91e63","#ff5722","#ffc107","#9c27b0","#2196f3"];
-  const fx = x + Math.sin(seed*3)*8, fy = y + Math.cos(seed*5)*4;
+  const fx = x + TILE_W/2 + (seed%5 - 2)*5;
+  const fy = y + TILE_H/2 + (seed%7 - 3)*5;
   ctx.beginPath(); ctx.arc(fx, fy-6, 3, 0, Math.PI*2); ctx.fillStyle = colors[seed%5]; ctx.fill();
   ctx.fillStyle = "#4caf50"; ctx.fillRect(fx-0.5, fy-4, 1, 5);
 }
 function drawFountain(x, y) {
-  ctx.beginPath(); ctx.ellipse(x, y, 14, 8, 0, 0, Math.PI*2); ctx.fillStyle = "#90a4ae"; ctx.fill();
-  const sprayH = 8 + Math.sin(animTime*4)*3;
-  ctx.beginPath(); ctx.moveTo(x, y-sprayH-10); ctx.lineTo(x-4, y-5); ctx.lineTo(x+4, y-5); ctx.closePath();
+  ctx.beginPath(); ctx.ellipse(x+TILE_W/2, y+TILE_H/2, 22, 12, 0, 0, Math.PI*2); ctx.fillStyle = "#90a4ae"; ctx.fill();
+  const sprayH = 12 + Math.sin(animTime*4)*4;
+  ctx.beginPath(); ctx.moveTo(x+TILE_W/2, y+TILE_H/2-sprayH-15); ctx.lineTo(x+TILE_W/2-6, y+TILE_H/2-8); ctx.lineTo(x+TILE_W/2+6, y+TILE_H/2-8); ctx.closePath();
   ctx.fillStyle = "rgba(66,165,245,0.6)"; ctx.fill();
 }
 function drawPortalEffect(x, y) {
   const glow = 0.4 + Math.sin(animTime*3)*0.3;
-  ctx.beginPath(); ctx.arc(x, y-8, 10+Math.sin(animTime*2)*3, 0, Math.PI*2);
+  ctx.beginPath(); ctx.arc(x+TILE_W/2, y+TILE_H/2, 15+Math.sin(animTime*2)*4, 0, Math.PI*2);
   ctx.fillStyle = "rgba(124,77,255,"+glow+")"; ctx.fill();
-  ctx.beginPath(); ctx.arc(x, y-8, 5, 0, Math.PI*2);
+  ctx.beginPath(); ctx.arc(x+TILE_W/2, y+TILE_H/2, 8, 0, Math.PI*2);
   ctx.fillStyle = "rgba(200,180,255,0.8)"; ctx.fill();
 }
-function drawCharacter(x, y) {
-  const bob = gameState.charMoving ? Math.sin(animTime*12)*2 : 0;
-  const cls = CLASSES.find(function(c){return c.id===gameState.clase;}) || CLASSES[0];
+function drawCharacter(x, y, data) {
+  const cx = x + TILE_W/2;
+  const cy = y + TILE_H/2;
+  const animOffset = Math.sin(animTime * 2) * 2;
+  const bob = (data.name === gameState.userName && gameState.charMoving) ? Math.sin(animTime*12)*3 : 0;
+  const cls = CLASSES.find(function(c){return c.id===data.clase;}) || CLASSES[0];
+  
+  // Role Glow
+  const gradient = ctx.createRadialGradient(cx, cy, 2, cx, cy, 25);
+  gradient.addColorStop(0, cls.color + "66");
+  gradient.addColorStop(1, "transparent");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(cx-30, cy-30, 60, 60);
+
   // Shadow
-  ctx.beginPath(); ctx.ellipse(x, y+3, 10, 5, 0, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fill();
-  const bodyY = y - 14 + bob;
+  ctx.beginPath(); ctx.ellipse(cx, cy+8, 14, 6, 0, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fill();
+  
+  const bodyY = cy - 18 + bob;
   // Shoes
-  ctx.fillStyle = gameState.charColors.shoes;
-  ctx.fillRect(x-7, bodyY+9, 5, 3); ctx.fillRect(x+2, bodyY+9, 5, 3);
+  ctx.fillStyle = data.colors.shoes;
+  ctx.fillRect(cx-9, bodyY+14, 6, 4); ctx.fillRect(cx+3, bodyY+14, 6, 4);
   // Pants
-  ctx.fillStyle = gameState.charColors.pants;
-  ctx.beginPath(); ctx.moveTo(x-8,bodyY+10); ctx.lineTo(x-7,bodyY+4); ctx.lineTo(x+7,bodyY+4); ctx.lineTo(x+8,bodyY+10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = data.colors.pants;
+  ctx.beginPath(); ctx.roundRect(cx-10, bodyY+6, 20, 10, 4); ctx.fill();
   // Shirt
-  ctx.fillStyle = gameState.charColors.shirt;
-  ctx.beginPath(); ctx.moveTo(x-7,bodyY+5); ctx.lineTo(x-6,bodyY-2); ctx.lineTo(x+6,bodyY-2); ctx.lineTo(x+7,bodyY+5); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = data.colors.shirt;
+  ctx.beginPath(); ctx.roundRect(cx-10, bodyY-4, 20, 11, 5); ctx.fill();
+  // Hands
+  ctx.fillStyle = "#ffcc80";
+  ctx.beginPath(); ctx.arc(cx-13, bodyY+5 + (gameState.charMoving?Math.sin(animTime*10)*3:0), 3.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+13, bodyY+5 - (gameState.charMoving?Math.sin(animTime*10)*3:0), 3.5, 0, Math.PI*2); ctx.fill();
   // Head
-  ctx.beginPath(); ctx.arc(x, bodyY-7, 7, 0, Math.PI*2); ctx.fillStyle = "#ffcc80"; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, bodyY-12, 10, 0, Math.PI*2); ctx.fillStyle = "#ffcc80"; ctx.fill();
   // Eyes
-  ctx.fillStyle = "#333"; ctx.fillRect(x-3, bodyY-8, 2, 2); ctx.fillRect(x+1, bodyY-8, 2, 2);
-  // Name
-  ctx.font = "bold 9px Nunito"; ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillText(gameState.userName.split(',')[0].split(' ')[0], x, bodyY-18);
-  ctx.fillStyle = "#fff"; ctx.fillText(gameState.userName.split(',')[0].split(' ')[0], x-0.5, bodyY-18.5);
-  // Glow
-  ctx.beginPath(); ctx.arc(x, bodyY-5, 12, 0, Math.PI*2);
-  ctx.strokeStyle = cls.color + "44"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = "#222"; ctx.fillRect(cx-4, bodyY-14, 2.5, 2.5); ctx.fillRect(cx+1.5, bodyY-14, 2.5, 2.5);
+  // Smile
+  ctx.beginPath(); ctx.arc(cx, bodyY-10.5, 4, 0.5, Math.PI-0.5); ctx.strokeStyle="#222"; ctx.lineWidth=1.5; ctx.stroke();
+  
+  // Floating Role Icon
+  ctx.font = '16px serif'; ctx.textAlign = 'center';
+  ctx.fillText(cls.icon, cx, bodyY - 26 + animOffset);
+  
+  // Name Tag (Premium Look)
+  const displayName = data.name.split(',')[0].split(' ')[0];
+  ctx.font = "bold 11px 'Nunito', sans-serif";
+  const nameW = ctx.measureText(displayName).width;
+  ctx.fillStyle = "rgba(10,10,25,0.75)";
+  ctx.beginPath(); ctx.roundRect(cx - (nameW+10)/2, bodyY-46, nameW+10, 16, 8); ctx.fill();
+  ctx.strokeStyle = cls.color + "88"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = data.name === gameState.userName ? "#ffd54f" : "#fff";
+  ctx.fillText(displayName, cx, bodyY-34);
+
+  // Chat Bubble
+  if (data.msg && data.msgTime > 0) {
+    drawChatBubble(cx, bodyY - 60, data.msg);
+  }
+}
+
+function drawChatBubble(x, y, msg) {
+  ctx.font = "bold 12px Nunito";
+  const tw = ctx.measureText(msg).width;
+  const bw = tw + 20, bh = 24;
+  ctx.fillStyle = "white";
+  ctx.beginPath(); ctx.roundRect(x - bw/2, y - bh, bw, bh, 10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x-5, y); ctx.lineTo(x+5, y); ctx.lineTo(x, y+5); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#333";
+  ctx.textAlign = "center";
+  ctx.fillText(msg, x, y - 8);
 }
 function drawBuildingLabel(x, y, icon, name, starsReq, unlocked) {
   ctx.font = "bold 10px Nunito";
   const tw = ctx.measureText(name).width;
   const totalW = tw + 40;
-  ctx.fillStyle = unlocked ? "rgba(46,125,50,0.85)" : "rgba(50,50,60,0.85)";
-  const rx = x - totalW/2, ry = y - 12;
+  ctx.fillStyle = unlocked ? "rgba(46,125,50,0.9)" : "rgba(50,50,60,0.9)";
+  const rx = x - 5, ry = y - 25;
   ctx.beginPath(); ctx.roundRect(rx, ry, totalW, 24, 6); ctx.fill();
-  ctx.strokeStyle = unlocked ? "rgba(102,187,106,0.4)" : "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.stroke();
-  ctx.font = "12px serif"; ctx.textAlign = "left"; ctx.fillText(icon, rx+4, ry+17);
-  ctx.font = "bold 10px Nunito"; ctx.fillStyle = "#fff"; ctx.fillText(name, rx+20, ry+16);
-  ctx.font = "bold 9px Nunito"; ctx.textAlign = "right";
+  ctx.font = "14px serif"; ctx.textAlign = "left"; ctx.fillText(icon, rx+5, ry+17);
+  ctx.font = "bold 11px Nunito"; ctx.fillStyle = "#fff"; ctx.fillText(name, rx+24, ry+16);
+  ctx.font = "bold 10px Nunito"; ctx.textAlign = "right";
   ctx.fillStyle = unlocked ? "#ffd54f" : "#ef5350";
-  ctx.fillText("★"+starsReq, rx+totalW-4, ry+16); ctx.textAlign = "left";
+  ctx.fillText("★"+starsReq, rx+totalW-4, ry+16);
 }
 
 // ===== INPUT =====
@@ -834,9 +2301,19 @@ function checkBuildingAt(col, row) {
   const zone = ZONE_INFO[gameState.currentZone];
   if (!zone || !zone.b) return;
   zone.b.forEach(function(b) {
-    for (let r = b.r; r < b.r+b.h; r++)
-      for (let c = b.c; c < b.c+b.w; c++)
-        if (Math.abs(col-c)<=1 && Math.abs(row-r)<=1 && (col!==c||row!==r)) { showBuildingPanel(b); return; }
+    // Si el edificio no tiene nombre ni descripción (como los Triángulos 2 anexos), ignorar por completo.
+    if (!b.n && !b.d) return; 
+    
+    if (b.ix !== undefined && b.iy !== undefined) {
+      // Interacción solo en la casilla exacta designada
+      if (col === b.ix && row === b.iy) { showBuildingPanel(b); return; }
+    } else {
+      // Modo antiguo (interactúa con cualquier casilla adyacente del bloque)
+      // Se irá reemplazando a medida que mapemos los ix e iy de todo el colegio
+      for (let r = b.r; r < b.r+b.h; r++)
+        for (let c = b.c; c < b.c+b.w; c++)
+          if (Math.abs(col-c)<=1 && Math.abs(row-r)<=1 && (col!==c||row!==r)) { showBuildingPanel(b); return; }
+    }
   });
 }
 function showBuildingPanel(b) {
@@ -861,7 +2338,16 @@ function enterBuilding() { closeBuildingPanel(); }
 
 // ===== HUD =====
 function updateHUD() {
-  const info = ZONE_INFO[gameState.currentZone];
+  let info = ZONE_INFO[gameState.currentZone];
+  
+  // Recuperación automática: si la zona no existe, forzar retorno a Portería (45)
+  if (!info && gameState.userId) {
+    console.warn("Zona inválida detectada para " + gameState.userId + ". Reubicando...");
+    gameState.currentZone = SPAWN_ZONE;
+    info = ZONE_INFO[SPAWN_ZONE];
+    saveProgress();
+  }
+
   document.getElementById('hud-zone-name').textContent = (info ? info.n : 'Zona Desconocida');
   document.getElementById('hud-stars').textContent = gameState.stars;
   document.getElementById('hud-level').textContent = gameState.nivel;
@@ -943,9 +2429,123 @@ async function saveProgress() {
       zona_actual: gameState.currentZone,
       charCol: gameState.charCol, charRow: gameState.charRow,
       charColors: gameState.charColors,
+      lastMessage: gameState.lastMessage,
+      messageTime: gameState.messageTime,
       ultimoAcceso: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+    
+    // Sincronizar también con el documento principal para el multijugador eficiente (onSnapshot)
+    await db.collection("ciudadano").doc(gameState.userId).update({
+      zona_actual: gameState.currentZone,
+      charCol: gameState.charCol,
+      charRow: gameState.charRow,
+      clase: gameState.clase,
+      charColors: gameState.charColors,
+      lastMessage: gameState.lastMessage,
+      messageTime: gameState.messageTime,
+      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+      sessionId: SESSION_ID
+    });
   } catch(e) { console.error("Save error:", e); }
+}
+
+// ===== LIMPIEZA AL CERRAR PESTAÑA =====
+// Cuando el jugador cierra la página, limpiar su zona para que no aparezca como fantasma
+window.addEventListener('beforeunload', function() {
+  if (!gameState.userId) return;
+  // Usar sendBeacon para garantizar que se envíe aunque se cierre la pestaña
+  // Firestore no soporta sendBeacon directamente, pero podemos hacer el update síncrono
+  try {
+    // Marcar zona_actual = 0 para que el jugador desaparezca del mapa
+    db.collection("ciudadano").doc(gameState.userId).update({
+      zona_actual: 0,
+      lastActive: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) { /* silently fail */ }
+});
+
+// ===== DETECCIÓN DE PESTAÑA DUPLICADA =====
+// Escuchar cambios en el sessionId del documento del jugador
+// Si otro tab actualiza el sessionId, este tab se desactiva
+function initSessionGuard() {
+  if (!gameState.userId) return;
+  let isFirstSnapshot = true; // Ignorar el primer snapshot (datos previos)
+  db.collection("ciudadano").doc(gameState.userId).onSnapshot(function(doc) {
+    if (!doc.exists) return;
+    // Ignorar el primer snapshot: siempre trae datos que acabamos de escribir
+    if (isFirstSnapshot) {
+      isFirstSnapshot = false;
+      return;
+    }
+    const data = doc.data();
+    // Si el sessionId en Firestore es diferente al nuestro, otro tab tomó el control
+    if (data.sessionId && data.sessionId !== SESSION_ID && gameState.gameReady) {
+      gameState.gameReady = false;
+      stopPlayerSync();
+      // Mostrar mensaje al usuario
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-family:Nunito,sans-serif;text-align:center;padding:20px;';
+      overlay.innerHTML = '<div style="font-size:48px;margin-bottom:20px;">\u26A0\uFE0F</div><h2 style="font-size:20px;margin-bottom:12px;">Sesi\u00F3n activa en otra pesta\u00F1a</h2><p style="color:#aaa;font-size:14px;margin-bottom:20px;">Tu personaje est\u00E1 jugando en otra ventana.<br>Solo puedes tener una sesi\u00F3n activa a la vez.</p><button onclick="location.reload()" style="padding:12px 32px;background:#7c4dff;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-family:Nunito,sans-serif;">Usar esta pesta\u00F1a</button>';
+      document.body.appendChild(overlay);
+    }
+  });
+}
+
+// ===== CHAT SYSTEM =====
+function openChatMenu() {
+  const existing = document.getElementById('chat-panel');
+  if (existing) { existing.remove(); return; }
+
+  const chat = document.createElement('div');
+  chat.id = 'chat-panel';
+  chat.innerHTML = `
+    <div class="chat-head">💬 Chat Social</div>
+    <div class="chat-emojis">
+      <button onclick="sendEmoji('😊')">😊</button><button onclick="sendEmoji('👋')">👋</button>
+      <button onclick="sendEmoji('😮')">😮</button><button onclick="sendEmoji('🙌')">🙌</button>
+      <button onclick="sendEmoji('⭐')">⭐</button><button onclick="sendEmoji('❤️')">❤️</button>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-text" placeholder="Escribe algo..." maxlength="25">
+      <button onclick="sendTextMessage()">Enviar</button>
+    </div>
+  `;
+  document.body.appendChild(chat);
+  document.getElementById('chat-text').focus();
+  document.getElementById('chat-text').onkeydown = e => { if (e.key === 'Enter') sendTextMessage(); };
+}
+
+function sendEmoji(emoji) {
+  gameState.lastMessage = emoji;
+  gameState.messageTime = 5;
+  saveProgress();
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.remove();
+}
+
+async function sendTextMessage() {
+  const input = document.getElementById('chat-text');
+  let txt = input.value.trim();
+  if (!txt) return;
+
+  // Moderación
+  const hasBadWord = BAD_WORDS.some(w => txt.toLowerCase().includes(w));
+  if (hasBadWord) {
+    alert("🛑 ¡Atención Ciudadano! El lenguaje inapropiado no está permitido. Se te ha restado 1 estrella por mal uso del chat.");
+    gameState.stars = Math.max(0, gameState.stars - 1);
+    updateHUD();
+    txt = "****";
+    // Sanción en base de datos
+    await db.collection("ciudadano").doc(gameState.userId).update({
+      estrellas: gameState.stars
+    });
+  }
+
+  gameState.lastMessage = txt;
+  gameState.messageTime = 8;
+  saveProgress();
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.remove();
 }
 setInterval(saveProgress, 30000);
 
