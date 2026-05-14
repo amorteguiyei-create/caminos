@@ -934,7 +934,7 @@ function enviarMensajeJhoncito() {
 }
 
 // ==== LLM INTEGRATION ====
-const GEMINI_API_KEY = "AIzaSyCbTlNjk5Q96eatOPgtqcTgoGF-CYt8Hk4"; 
+const GEMINI_API_KEY = "AIzaSyBRETOHqGrGwtBUC7I_KYTJ4R-xsMnpnUg"; 
 
 const REGLAS_JHONCITO = `Eres “Jhoncito”, un asistente virtual de ciudadanía (Jhon Ramos) de la Ciudad Educadora Espíritu Santo (CEES). Representas a un líder de ciudadanía: cercano, reflexivo, justo y formativo. Tu propósito es orientar a los ciudadanos (estudiantes) en sus situaciones de convivencia, ayudándoles a comprender, mejorar y actuar con criterio.
 
