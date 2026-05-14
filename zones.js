@@ -53,10 +53,10 @@ const ZONE_INFO = [
        {c:8,r:3,w:3,h:3,n:"Salón Kintsugi",i:"🏺",d:"Salones del proyecto Kintsugi. El arte de reparar.",s:0}]},
   {n:"Pasillo Central & Atlantis",t:"cb",i:"🌊",bg:"#1e2a4a",
     b:[{c:4,r:4,w:4,h:3,n:"Salones Atlantis",i:"🌊",d:"Proyecto Atlantis. ODS 6: Agua Limpia y Saneamiento.",s:2}]},
-  {n:"Rotonda & District 12",t:"pz",i:"⚖️",bg:"#2d4a1e",portal:true,
-    b:[{c:1,r:1,w:5,h:4,n:"Salones District 12",i:"⚖️",shape:"district12_upper",d:"Proyecto District 12. ODS 10: Reducción de Desigualdades.",s:3, ix:4, iy:2},
-       {c:1,r:8,w:5,h:6,n:"",i:"⚖️",shape:"district12_lower",d:"",s:0},
-       {c:6,r:5,w:3,h:3,n:"",i:"⭕",shape:"rotonda",d:"Rotonda que conecta Junior, Administración y High School.",s:0, hideMarker:true}]},
+  {n:"Rotonda & District 12",t:"lf",i:"⚖️",bg:"#2d4a1e",portal:true,
+    b:[{c:0,r:1,w:5,h:4,n:"",i:"⚖️",shape:"district12_upper",d:"",s:0},
+       {c:0,r:8,w:5,h:6,n:"Salones District 12",i:"⚖️",shape:"district12_lower",d:"Proyecto District 12. ODS 10: Reducción de Desigualdades.",s:3, ix:5, iy:10},
+       {c:4,r:4,w:6,h:6,n:"",i:"⭕",shape:"rotonda",d:"Rotonda que conecta Junior, Administración y High School.",s:0, hideMarker:true}]},
   {n:"High School Paula R. de Pardo",t:"lf",nopaths:true,bg:"#2d4a1e",
     b:[{c:5,r:0,w:5,h:7,n:"Hall de ciclo High",i:"🏫",shape:"hs_bridge",d:"Primer piso del edificio de high Paula Rodriguez de Pardo",s:0, ix:7, iy:4, hideMarker:true},
        {c:5,r:7,w:5,h:4,n:"",i:"🏫",shape:"hs_wing",d:"",s:0},
@@ -267,25 +267,25 @@ function generateZoneMap(zoneNum) {
         }
       }
     } else if (b.shape === "district12_upper") {
-      // Triángulo ODS 10 apuntando a la derecha (r:1-4, c:1-5)
+      // Triángulo ODS 10 apuntando a la derecha (r:1-4, c:0-4)
       const cells = [
-        [1, 1], [1, 2],
-        [2, 1], [2, 2], [2, 3], [2, 4], [2, 5],
-        [3, 1], [3, 2], [3, 3], [3, 4], [3, 5],
-        [4, 1], [4, 2]
+        [1, 0], [1, 1],
+        [2, 0], [2, 1], [2, 2], [2, 3], [2, 4],
+        [3, 0], [3, 1], [3, 2], [3, 3], [3, 4],
+        [4, 0], [4, 1]
       ];
       cells.forEach(pos => {
         if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
       });
     } else if (b.shape === "district12_lower") {
-      // Triángulo ODS 10 inferior apuntando a la derecha (r:8-13, c:1-5)
+      // Triángulo ODS 10 inferior apuntando a la derecha (r:8-13, c:0-4)
       const cells = [
-        [8, 1],
-        [9, 1], [9, 2],
-        [10, 1], [10, 2], [10, 3], [10, 4], [10, 5],
-        [11, 1], [11, 2], [11, 3], [11, 4], [11, 5],
-        [12, 1], [12, 2],
-        [13, 1]
+        [8, 0],
+        [9, 0], [9, 1],
+        [10, 0], [10, 1], [10, 2], [10, 3], [10, 4],
+        [11, 0], [11, 1], [11, 2], [11, 3], [11, 4],
+        [12, 0], [12, 1],
+        [13, 0]
       ];
       cells.forEach(pos => {
         if (pos[0] < MAP_H && pos[1] < MAP_W) m[pos[0]][pos[1]] = 3;
@@ -354,12 +354,12 @@ function generateZoneMap(zoneNum) {
     }
   });
 
-  // Place portal pad if zone has portals
+  // Place portal pad if zone has portals (single 2x2 pad)
   if (info.portal) {
     m[MAP_H - 3][MAP_W - 3] = 9;
-    m[MAP_H - 3][MAP_W - 4] = 9;
-    m[MAP_H - 4][MAP_W - 3] = 9;
-    m[MAP_H - 4][MAP_W - 4] = 9;
+    m[MAP_H - 3][MAP_W - 2] = 9;
+    m[MAP_H - 2][MAP_W - 3] = 9;
+    m[MAP_H - 2][MAP_W - 2] = 9;
   }
 
   // Manual Map Overrides (Limpieza específica)
@@ -380,22 +380,26 @@ function generateZoneMap(zoneNum) {
   }
   
   if (zoneNum === 13) { // Mapa 13: Rotonda & District 12
-    // Zigzag path desde col 13, fila 5-6 hacia la rotonda (col 8)
-    m[5][13] = 2; m[6][13] = 2;
-    m[5][12] = 2; m[6][12] = 2;
-    m[4][11] = 2; m[5][11] = 2;
-    m[5][10] = 2; m[6][10] = 2;
-    m[4][9] = 2; m[5][9] = 2;
-    m[5][8] = 2; m[6][8] = 2;
-    // Rotonda area — asegurar que todo sea walkable (grass)
-    for (let r = 5; r <= 7; r++) {
-      for (let c = 6; c <= 8; c++) {
+    // Limpiar TODO el mapa de flores y elementos del template que generen sombras
+    for (let r = 0; r < MAP_H; r++) {
+      for (let c = 0; c < MAP_W; c++) {
+        if (m[r][c] === 6 || m[r][c] === 5) m[r][c] = 1; // Quitar flores y fuentes
+      }
+    }
+    // Zigzag path desde col 13, fila 6-7 hacia la rotonda (col 10)
+    m[6][13] = 2; m[7][13] = 2;
+    m[6][12] = 2; m[7][12] = 2;
+    m[5][11] = 2; m[6][11] = 2;
+    m[6][10] = 2; m[7][10] = 2;
+    // Rotonda area 6x6 — asegurar que todo sea walkable (grass)
+    for (let r = 4; r <= 9; r++) {
+      for (let c = 4; c <= 9; c++) {
         if (m[r][c] === 4 || m[r][c] === 3) m[r][c] = 1;
       }
     }
     // Limpiar árboles alrededor de la rotonda
-    for (let r = 4; r <= 8; r++) {
-      for (let c = 5; c <= 9; c++) {
+    for (let r = 3; r <= 10; r++) {
+      for (let c = 3; c <= 10; c++) {
         if (m[r][c] === 4) m[r][c] = 1;
       }
     }

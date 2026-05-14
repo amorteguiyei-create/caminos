@@ -890,7 +890,11 @@ function render() {
         drawWater(pos.x, pos.y);
       } else if (tile === 9) {
         drawSquare(pos.x, pos.y, TILE_COLORS[1]); // Base de grass bajo el portal
-        drawPortalEffect(pos.x, pos.y);
+        // Solo renderizar el efecto en la esquina superior-izquierda del pad 2x2
+        const isTopLeft = (row === 0 || map[row-1][col] !== 9) && (col === 0 || map[row][col-1] !== 9);
+        if (isTopLeft) {
+          drawPortalEffect2x2(pos.x, pos.y);
+        }
       } else {
         const colors = TILE_COLORS[tile];
         if (colors) drawSquare(pos.x, pos.y, colors);
@@ -2357,12 +2361,13 @@ function drawFountain(x, y) {
   ctx.beginPath(); ctx.moveTo(x+TILE_W/2, y+TILE_H/2-sprayH-15); ctx.lineTo(x+TILE_W/2-6, y+TILE_H/2-8); ctx.lineTo(x+TILE_W/2+6, y+TILE_H/2-8); ctx.closePath();
   ctx.fillStyle = "rgba(66,165,245,0.6)"; ctx.fill();
 }
-function drawPortalEffect(x, y) {
-  const cx = x + TILE_W/2;
-  const cy = y + TILE_H/2;
+function drawPortalEffect2x2(x, y) {
+  // Centro del área 2x2
+  const cx = x + TILE_W;
+  const cy = y + TILE_H;
   const t = animTime;
   const pulse = 0.8 + Math.sin(t * 2) * 0.2;
-  const baseR = TILE_W * 0.38;
+  const baseR = TILE_W * 0.75;
 
   // Outer glow aura
   const outerGlow = ctx.createRadialGradient(cx, cy, baseR * 0.3, cx, cy, baseR * 1.8);
@@ -2377,7 +2382,7 @@ function drawPortalEffect(x, y) {
   ctx.translate(cx, cy);
   ctx.rotate(t * 1.5);
   ctx.strokeStyle = "rgba(0,176,255," + (0.6 * pulse) + ")";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.arc(0, 0, baseR, 0, Math.PI * 1.6);
   ctx.stroke();
@@ -2388,23 +2393,23 @@ function drawPortalEffect(x, y) {
   ctx.translate(cx, cy);
   ctx.rotate(-t * 2.2);
   ctx.strokeStyle = "rgba(100,200,255," + (0.7 * pulse) + ")";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(0, 0, baseR * 0.6, 0.3, Math.PI * 1.4 + 0.3);
+  ctx.arc(0, 0, baseR * 0.55, 0.3, Math.PI * 1.4 + 0.3);
   ctx.stroke();
   ctx.restore();
 
-  // Lightning rays (6 rays rotating)
+  // Lightning rays (8 rays rotating)
   ctx.save();
   ctx.translate(cx, cy);
-  for (let i = 0; i < 6; i++) {
-    const angle = (t * 0.8) + (i * Math.PI / 3);
+  for (let i = 0; i < 8; i++) {
+    const angle = (t * 0.8) + (i * Math.PI / 4);
     const rayLen = baseR * (0.7 + Math.sin(t * 4 + i * 1.5) * 0.3);
     const midAngle = angle + Math.sin(t * 6 + i) * 0.15;
     ctx.strokeStyle = "rgba(130,220,255," + (0.4 + Math.sin(t * 5 + i) * 0.3) + ")";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(Math.cos(angle) * baseR * 0.3, Math.sin(angle) * baseR * 0.3);
+    ctx.moveTo(Math.cos(angle) * baseR * 0.25, Math.sin(angle) * baseR * 0.25);
     ctx.lineTo(Math.cos(midAngle) * rayLen * 0.6, Math.sin(midAngle) * rayLen * 0.6);
     ctx.lineTo(Math.cos(angle) * rayLen, Math.sin(angle) * rayLen);
     ctx.stroke();
@@ -2412,24 +2417,24 @@ function drawPortalEffect(x, y) {
   ctx.restore();
 
   // Bright white center core
-  const coreGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.35);
+  const coreGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.4);
   coreGlow.addColorStop(0, "rgba(255,255,255," + (0.9 * pulse) + ")");
   coreGlow.addColorStop(0.5, "rgba(180,230,255," + (0.5 * pulse) + ")");
   coreGlow.addColorStop(1, "rgba(30,136,229,0)");
   ctx.fillStyle = coreGlow;
   ctx.beginPath();
-  ctx.arc(cx, cy, baseR * 0.35, 0, Math.PI * 2);
+  ctx.arc(cx, cy, baseR * 0.4, 0, Math.PI * 2);
   ctx.fill();
 
   // Tiny sparkles
-  for (let i = 0; i < 4; i++) {
-    const sa = t * 3 + i * Math.PI * 0.5;
+  for (let i = 0; i < 6; i++) {
+    const sa = t * 3 + i * Math.PI / 3;
     const sr = baseR * (0.5 + Math.sin(t * 2 + i * 2) * 0.4);
     const sx = cx + Math.cos(sa) * sr;
     const sy = cy + Math.sin(sa) * sr;
     ctx.fillStyle = "rgba(200,240,255," + (0.5 + Math.sin(t * 7 + i) * 0.4) + ")";
     ctx.beginPath();
-    ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+    ctx.arc(sx, sy, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }
